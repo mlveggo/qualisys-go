@@ -22,7 +22,7 @@ const (
 )
 
 // GetParameters fetches xml settings from QTM for specified.
-func (rt *RtProtocol) GetParameters(parameters ...ParameterType) (string, error) {
+func (rt *Protocol) GetParameters(parameters ...ParameterType) (string, error) {
 	parametersToString := map[ParameterType]string{
 		ParameterTypeAll:         "All",
 		ParameterTypeGeneral:     "General",
@@ -53,7 +53,7 @@ func (rt *RtProtocol) GetParameters(parameters ...ParameterType) (string, error)
 	return p.XMLResponse, nil
 }
 
-func (rt *RtProtocol) SetParameters(xml string) error {
+func (rt *Protocol) SetParameters(xml string) error {
 	s := "<QTM_Settings>" + xml + "</QTM_Settings>"
 	qtmResponses := []string{"Setting parameters succeeded"}
 	if err := rt.sendAndWaitForResponse(rt.sendXML, s, qtmResponses); err != nil {

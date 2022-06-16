@@ -35,7 +35,7 @@ const (
 	ComponentTypeEyeTracker
 )
 
-type RtProtocol struct {
+type Protocol struct {
 	conn     net.Conn
 	buffer   []byte
 	ip       string
@@ -44,16 +44,16 @@ type RtProtocol struct {
 
 const DefaultLittleEndianPort = 22223
 
-func NewRtProtocol(ip string, basePort int) *RtProtocol {
+func NewProtocol(ip string, basePort int) *Protocol {
 	const startBufferSize int = 4096
-	rt := new(RtProtocol)
+	rt := new(Protocol)
 	rt.buffer = make([]byte, startBufferSize)
 	rt.ip = ip
 	rt.basePort = basePort
 	return rt
 }
 
-func (rt *RtProtocol) Connect() error {
+func (rt *Protocol) Connect() error {
 	if rt.IsConnected() {
 		rt.Disconnect()
 	}
@@ -84,11 +84,11 @@ func (rt *RtProtocol) Connect() error {
 	return err
 }
 
-func (rt *RtProtocol) IsConnected() bool {
+func (rt *Protocol) IsConnected() bool {
 	return rt.conn != nil
 }
 
-func (rt *RtProtocol) Disconnect() {
+func (rt *Protocol) Disconnect() {
 	if !rt.IsConnected() {
 		return
 	}
@@ -96,7 +96,7 @@ func (rt *RtProtocol) Disconnect() {
 	rt.conn = nil
 }
 
-func (rt *RtProtocol) Receive() (*RtPacket, error) {
+func (rt *Protocol) Receive() (*Packet, error) {
 	for i := range rt.buffer {
 		rt.buffer[i] = 0
 	}
@@ -108,14 +108,14 @@ func (rt *RtProtocol) Receive() (*RtPacket, error) {
 	if err != nil {
 		var netError net.Error
 		if errors.As(err, &netError) && netError.Timeout() {
-			return &RtPacket{Type: PacketTypeNoMoreData}, nil
+			return &Packet{Type: PacketTypeNoMoreData}, nil
 		}
 		return nil, fmt.Errorf("receive: read %w", err)
 	}
 	if packetSize < packetHeaderSize {
 		return nil, fmt.Errorf("receive: packet to small for header")
 	}
-	var p RtPacket
+	var p Packet
 	p.Size = int(binary.LittleEndian.Uint32(rt.buffer[0:4]))
 	p.Type = PacketType(binary.LittleEndian.Uint32(rt.buffer[4:8]))
 	if len(rt.buffer) < p.Size {
@@ -133,7 +133,7 @@ func (rt *RtProtocol) Receive() (*RtPacket, error) {
 		if err != nil {
 			var netError net.Error
 			if errors.As(err, &netError) && netError.Timeout() {
-				return &RtPacket{Type: PacketTypeNoMoreData}, nil
+				return &Packet{Type: PacketTypeNoMoreData}, nil
 			}
 			if !errors.Is(err, io.EOF) {
 				return nil, fmt.Errorf("receive: read %w", err)

@@ -145,7 +145,7 @@ func (d *Discovery) Discover() ([]Response, error) {
 	if err := conn.SetReadDeadline(time.Now().Add(d.timeout)); err != nil {
 		return nil, fmt.Errorf("discover: setreaddeadline: %w", err)
 	}
-	var responses []Response
+	responses := make([]Response, 0, 1)
 	for {
 		size, addr, err := conn.ReadFrom(b)
 		if err != nil {
@@ -187,7 +187,7 @@ func (dr *Response) UnmarshalBinary(data []byte) error {
 	return nil
 }
 
-func splitAndTrimStrings(s string, sep string) []string {
+func splitAndTrimStrings(s, sep string) []string {
 	parts := strings.Split(s, sep)
 	for i := range parts {
 		parts[i] = strings.TrimSpace(parts[i])

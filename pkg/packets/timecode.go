@@ -18,7 +18,7 @@ type IrigTime struct {
 	Year, Day, Hour, Minute, Second, Tenth uint32
 }
 
-func (i *IrigTime) Convert(high uint32, low uint32) {
+func (i *IrigTime) Convert(high, low uint32) {
 	i.Year = 0x7f & high
 	i.Day = 0x1FF & (high >> 7)
 	i.Hour = 0x1f & low
@@ -31,7 +31,7 @@ type SmpteTime struct {
 	Hour, Minute, Second, Frame uint32
 }
 
-func (i *SmpteTime) Convert(high uint32, low uint32) {
+func (i *SmpteTime) Convert(high, low uint32) {
 	i.Hour = 0x1f & low
 	i.Minute = 0x3F & (low >> 5)
 	i.Second = 0x3F & (low >> 11)
@@ -40,7 +40,7 @@ func (i *SmpteTime) Convert(high uint32, low uint32) {
 
 type CameraTime uint64
 
-func (i *CameraTime) Convert(high uint32, low uint32) {
+func (i *CameraTime) Convert(high, low uint32) {
 	*i = CameraTime((uint64(high) << uint64(32)) | uint64(low))
 }
 

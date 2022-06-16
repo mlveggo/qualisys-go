@@ -10,7 +10,7 @@ import (
 	"github.com/mlveggo/qualisys-go/pkg/discover"
 )
 
-func HandlePackets(p *qualisys.RtPacket) {
+func HandlePackets(p *qualisys.Packet) {
 	switch p.Type {
 	case qualisys.PacketTypeEvent:
 		log.Println("Event:", p.Event)
@@ -42,7 +42,7 @@ func main() {
 		ip = os.Args[1]
 	}
 	log.Println("Connecting to: ", ip)
-	rt := qualisys.NewRtProtocol(ip, basePort)
+	rt := qualisys.NewProtocol(ip, basePort)
 	parametersFetched := false
 	streaming := false
 	for {
