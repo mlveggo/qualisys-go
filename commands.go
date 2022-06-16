@@ -9,7 +9,7 @@ import (
 
 type senderType func(string) error
 
-func (rt *RtProtocol) sendCommand(cmd string) error {
+func (rt *Protocol) sendCommand(cmd string) error {
 	if !rt.IsConnected() {
 		return fmt.Errorf("sendcommand: not connected")
 	}
@@ -25,7 +25,7 @@ func (rt *RtProtocol) sendCommand(cmd string) error {
 	return nil
 }
 
-func (rt *RtProtocol) sendXML(cmd string) error {
+func (rt *Protocol) sendXML(cmd string) error {
 	if !rt.IsConnected() {
 		return fmt.Errorf("sendxml: not connected")
 	}
@@ -41,7 +41,7 @@ func (rt *RtProtocol) sendXML(cmd string) error {
 	return nil
 }
 
-func (rt *RtProtocol) SetVersion(major int, minor int) error {
+func (rt *Protocol) SetVersion(major, minor int) error {
 	ver := strconv.Itoa(major) + "." + strconv.Itoa(minor)
 	cmd := "Version " + ver
 	qtmResponses := []string{"Version set to " + ver}
@@ -52,7 +52,7 @@ func (rt *RtProtocol) SetVersion(major int, minor int) error {
 }
 
 // GetState makes QTM send the current state as an event.
-func (rt *RtProtocol) GetState() error {
+func (rt *Protocol) GetState() error {
 	cmd := "GetState"
 	if err := rt.sendCommand(cmd); err != nil {
 		return fmt.Errorf("getstate: %w", err)
@@ -69,7 +69,7 @@ const (
 	StreamRateTypeFrequencyDivisor
 )
 
-func (rt RtProtocol) getComponentString(c ComponentType) string {
+func (rt Protocol) getComponentString(c ComponentType) string {
 	componentsToString := map[ComponentType]string{
 		ComponentType3D:                 "3D",
 		ComponentType3DNoLabels:         "3DNoLabels",
@@ -94,7 +94,7 @@ func (rt RtProtocol) getComponentString(c ComponentType) string {
 	return componentsToString[c]
 }
 
-func (rt *RtProtocol) GetCurrentFrame(rate StreamRateType, value int, components ...ComponentType) error {
+func (rt *Protocol) GetCurrentFrame(rate StreamRateType, value int, components ...ComponentType) error {
 	cmd := "GetCurrentFrame"
 	for _, c := range components {
 		cmd += " " + rt.getComponentString(c)
@@ -105,14 +105,14 @@ func (rt *RtProtocol) GetCurrentFrame(rate StreamRateType, value int, components
 	return nil
 }
 
-func (rt *RtProtocol) StreamFramesAll(components ...ComponentType) error {
+func (rt *Protocol) StreamFramesAll(components ...ComponentType) error {
 	if err := rt.StreamFrames(StreamRateTypeAllFrames, 0, components...); err != nil {
 		return fmt.Errorf("streamframesall: %w", err)
 	}
 	return nil
 }
 
-func (rt *RtProtocol) StreamFrames(rate StreamRateType, value int, components ...ComponentType) error {
+func (rt *Protocol) StreamFrames(rate StreamRateType, value int, components ...ComponentType) error {
 	cmd := "StreamFrames"
 	switch rate {
 	case StreamRateTypeAllFrames:
@@ -131,7 +131,7 @@ func (rt *RtProtocol) StreamFrames(rate StreamRateType, value int, components ..
 	return nil
 }
 
-func (rt *RtProtocol) StreamFramesStop() error {
+func (rt *Protocol) StreamFramesStop() error {
 	cmd := "StreamFrames stop"
 	if err := rt.sendCommand(cmd); err != nil {
 		return fmt.Errorf("streamframesstop: %w", err)
@@ -139,7 +139,7 @@ func (rt *RtProtocol) StreamFramesStop() error {
 	return nil
 }
 
-func (rt *RtProtocol) TakeControl(password string) error {
+func (rt *Protocol) TakeControl(password string) error {
 	cmd := "TakeControl " + password
 	qtmResponses := []string{"You are now master", "You are already master"}
 	if err := rt.sendAndWaitForResponse(rt.sendCommand, cmd, qtmResponses); err != nil {
@@ -148,7 +148,7 @@ func (rt *RtProtocol) TakeControl(password string) error {
 	return nil
 }
 
-func (rt *RtProtocol) ReleaseControl(password string) error {
+func (rt *Protocol) ReleaseControl(password string) error {
 	cmd := "ReleaseControl"
 	qtmResponses := []string{"You are now a regular client", "You are already a regular client"}
 	if err := rt.sendAndWaitForResponse(rt.sendCommand, cmd, qtmResponses); err != nil {
@@ -157,7 +157,7 @@ func (rt *RtProtocol) ReleaseControl(password string) error {
 	return nil
 }
 
-func (rt *RtProtocol) New(password string) error {
+func (rt *Protocol) New(password string) error {
 	cmd := "New"
 	qtmResponses := []string{"Creating new connection"}
 	if err := rt.sendAndWaitForResponse(rt.sendCommand, cmd, qtmResponses); err != nil {
@@ -166,7 +166,7 @@ func (rt *RtProtocol) New(password string) error {
 	return nil
 }
 
-func (rt *RtProtocol) Close(password string) error {
+func (rt *Protocol) Close(password string) error {
 	cmd := "Close"
 	qtmResponses := []string{"Closing connection", "Closing file"}
 	if err := rt.sendAndWaitForResponse(rt.sendCommand, cmd, qtmResponses); err != nil {
@@ -175,7 +175,7 @@ func (rt *RtProtocol) Close(password string) error {
 	return nil
 }
 
-func (rt *RtProtocol) Start(rtFromFile bool) error {
+func (rt *Protocol) Start(rtFromFile bool) error {
 	cmd := "Start"
 	if rtFromFile {
 		cmd += " RTFromFile"
@@ -187,7 +187,7 @@ func (rt *RtProtocol) Start(rtFromFile bool) error {
 	return nil
 }
 
-func (rt *RtProtocol) Stop() error {
+func (rt *Protocol) Stop() error {
 	cmd := "Stop"
 	qtmResponses := []string{"Stopping measurement"}
 	if err := rt.sendAndWaitForResponse(rt.sendCommand, cmd, qtmResponses); err != nil {
@@ -196,7 +196,7 @@ func (rt *RtProtocol) Stop() error {
 	return nil
 }
 
-func (rt *RtProtocol) Load(filename string) error {
+func (rt *Protocol) Load(filename string) error {
 	cmd := "Load " + filename
 	qtmResponses := []string{"Measurement loaded"}
 	if err := rt.sendAndWaitForResponse(rt.sendCommand, cmd, qtmResponses); err != nil {
@@ -205,7 +205,7 @@ func (rt *RtProtocol) Load(filename string) error {
 	return nil
 }
 
-func (rt *RtProtocol) Save(filename string, overwrite bool) error {
+func (rt *Protocol) Save(filename string, overwrite bool) error {
 	cmd := "Save " + filename
 	if overwrite {
 		cmd += " Overwrite"
@@ -217,7 +217,7 @@ func (rt *RtProtocol) Save(filename string, overwrite bool) error {
 	return nil
 }
 
-func (rt *RtProtocol) LoadProject(path string) error {
+func (rt *Protocol) LoadProject(path string) error {
 	cmd := "LoadProject " + path
 	qtmResponses := []string{"Project loaded"}
 	if err := rt.sendAndWaitForResponse(rt.sendCommand, cmd, qtmResponses); err != nil {
@@ -226,7 +226,7 @@ func (rt *RtProtocol) LoadProject(path string) error {
 	return nil
 }
 
-func (rt *RtProtocol) GetCaptureC3D(path string) error {
+func (rt *Protocol) GetCaptureC3D(path string) error {
 	cmd := "GetCaptureC3D"
 	qtmResponses := []string{"Sending capture"}
 	if err := rt.sendAndWaitForResponse(rt.sendCommand, cmd, qtmResponses); err != nil {
@@ -235,7 +235,7 @@ func (rt *RtProtocol) GetCaptureC3D(path string) error {
 	return nil
 }
 
-func (rt *RtProtocol) GetCaptureQTM(path string) error {
+func (rt *Protocol) GetCaptureQTM(path string) error {
 	cmd := "GetCaptureQTM"
 	qtmResponses := []string{"Sending capture"}
 	if err := rt.sendAndWaitForResponse(rt.sendCommand, cmd, qtmResponses); err != nil {
@@ -244,7 +244,7 @@ func (rt *RtProtocol) GetCaptureQTM(path string) error {
 	return nil
 }
 
-func (rt *RtProtocol) Trig(path string) error {
+func (rt *Protocol) Trig(path string) error {
 	cmd := "Trig"
 	qtmResponses := []string{"Trig ok"}
 	if err := rt.sendAndWaitForResponse(rt.sendCommand, cmd, qtmResponses); err != nil {
@@ -253,7 +253,7 @@ func (rt *RtProtocol) Trig(path string) error {
 	return nil
 }
 
-func (rt *RtProtocol) SetQTMEvent(label string) error {
+func (rt *Protocol) SetQTMEvent(label string) error {
 	cmd := "SetQTMEvent " + label
 	qtmResponses := []string{"Event set"}
 	if err := rt.sendAndWaitForResponse(rt.sendCommand, cmd, qtmResponses); err != nil {
@@ -262,7 +262,7 @@ func (rt *RtProtocol) SetQTMEvent(label string) error {
 	return nil
 }
 
-func (rt *RtProtocol) Reprocess(label string) error {
+func (rt *Protocol) Reprocess(label string) error {
 	cmd := "Reprocess"
 	qtmResponses := []string{"Reprocessing file"}
 	if err := rt.sendAndWaitForResponse(rt.sendCommand, cmd, qtmResponses); err != nil {
@@ -271,7 +271,7 @@ func (rt *RtProtocol) Reprocess(label string) error {
 	return nil
 }
 
-func (rt *RtProtocol) Calibrate(refine bool) error {
+func (rt *Protocol) Calibrate(refine bool) error {
 	cmd := "Calibrate"
 	if refine {
 		cmd += " Refine"
@@ -301,7 +301,7 @@ const (
 	LedColorAll
 )
 
-func (rt *RtProtocol) Led(cameraNumber int, mode LedMode, color LedColor) error {
+func (rt *Protocol) Led(cameraNumber int, mode LedMode, color LedColor) error {
 	cmd := "Led " + strconv.Itoa(cameraNumber) + " " + mode.String() + " " + color.String()
 	if err := rt.sendCommand(cmd); err != nil {
 		return fmt.Errorf("stop: %w", err)
@@ -309,7 +309,7 @@ func (rt *RtProtocol) Led(cameraNumber int, mode LedMode, color LedColor) error 
 	return nil
 }
 
-func (rt *RtProtocol) Quit() error {
+func (rt *Protocol) Quit() error {
 	cmd := "Quit"
 	qtmResponses := []string{"Bye bye"}
 	if err := rt.sendAndWaitForResponse(rt.sendCommand, cmd, qtmResponses); err != nil {
@@ -318,7 +318,7 @@ func (rt *RtProtocol) Quit() error {
 	return nil
 }
 
-func (rt *RtProtocol) sendAndWaitForResponse(sender senderType, s string, expectedResponses []string) error {
+func (rt *Protocol) sendAndWaitForResponse(sender senderType, s string, expectedResponses []string) error {
 	if err := sender(s); err != nil {
 		return fmt.Errorf("sendcommandandwaitforresponse: sender: %w", err)
 	}

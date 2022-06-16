@@ -1,24 +1,24 @@
-name: CI
+name: ci
 
 on:
   push:
     branches:
       - master
   pull_request:
-    branches:
-      - "*"
+    types: [opened, reopened, synchronize]
+
+env:
+  GOPRIVATE: github.com/einride/*
 
 jobs:
-  make:
+  build:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2.3.5
 
-      - name: Setup Go
-        uses: actions/setup-go@v2.1.4
+    steps:
+      - name: Setup Sage
+        uses: einride/sage/actions/setup@master
         with:
-          go-version: ^1.17
+          go-version: 1.18
 
       - name: Make
         run: make

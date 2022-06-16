@@ -53,7 +53,7 @@ type DataPacket struct {
 	Components []IDataObject
 }
 
-type RtPacket struct {
+type Packet struct {
 	Type            PacketType
 	ErrorResponse   string
 	CommandResponse string
@@ -64,15 +64,15 @@ type RtPacket struct {
 	File            FilePacket
 }
 
-func (p *RtPacket) Error() bool {
+func (p *Packet) Error() bool {
 	return p.Type == PacketTypeError
 }
 
-func (p *RtPacket) IsPacketData() bool {
+func (p *Packet) IsPacketData() bool {
 	return p.Type == PacketTypeData
 }
 
-func (p *RtPacket) EndOfData() bool {
+func (p *Packet) EndOfData() bool {
 	return p.Type == PacketTypeNoMoreData
 }
 
@@ -149,7 +149,7 @@ func trimStringResponse(data []byte) string {
 	return string(bytes.Trim(data, "\x00"))
 }
 
-func (p *RtPacket) UnmarshalBinary(data []byte) error {
+func (p *Packet) UnmarshalBinary(data []byte) error {
 	p.Size = int(binary.LittleEndian.Uint32(data[0:4]))
 	p.Type = PacketType(binary.LittleEndian.Uint32(data[4:8]))
 	switch p.Type {

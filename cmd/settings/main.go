@@ -23,7 +23,7 @@ func main() {
 			break
 		}
 	}
-	rt := qualisys.NewRtProtocol(ip, basePort)
+	rt := qualisys.NewProtocol(ip, basePort)
 	log.Println("Connecting to:", ip)
 	if err := rt.Connect(); err != nil {
 		log.Println(err)

@@ -1,7 +1,11 @@
-# qualisys-go
-Go sdk for Qualisys Track Manager streaming of motion capture data. 
+qualisys-go
+===========
 
-## Discovery example
+Go sdk for Qualisys Track Manager streaming of motion capture data.
+
+Discovery example
+-----------------
+
 ```Go
 package main
 
@@ -25,7 +29,10 @@ func main() {
 }
 ```
 
-## Issues
-- It should always fail to connect to older QTM version (Support 1.22 and upwards)
-- StreamFrames - Missing support for [:channels] handling.
-- Makefile doesn't work on Windows (golangci-lint/goreview handling)
+Issues
+------
+
+-	It should always fail to connect to older QTM version (Support 1.22 and upwards)
+-	StreamFrames - Missing support for \[:channels] handling.
+-	Makefile doesn't work on Windows (golangci-lint/goreview handling)
+-	Support passing in an context.Context in NewProtocol()
