@@ -94,7 +94,7 @@ func (rt Protocol) getComponentString(c ComponentType) string {
 	return componentsToString[c]
 }
 
-func (rt *Protocol) GetCurrentFrame(rate StreamRateType, value int, components ...ComponentType) error {
+func (rt *Protocol) GetCurrentFrame(components ...ComponentType) error {
 	cmd := "GetCurrentFrame"
 	for _, c := range components {
 		cmd += " " + rt.getComponentString(c)
@@ -148,7 +148,7 @@ func (rt *Protocol) TakeControl(password string) error {
 	return nil
 }
 
-func (rt *Protocol) ReleaseControl(password string) error {
+func (rt *Protocol) ReleaseControl() error {
 	cmd := "ReleaseControl"
 	qtmResponses := []string{"You are now a regular client", "You are already a regular client"}
 	if err := rt.sendAndWaitForResponse(rt.sendCommand, cmd, qtmResponses); err != nil {
@@ -157,7 +157,7 @@ func (rt *Protocol) ReleaseControl(password string) error {
 	return nil
 }
 
-func (rt *Protocol) New(password string) error {
+func (rt *Protocol) New() error {
 	cmd := "New"
 	qtmResponses := []string{"Creating new connection"}
 	if err := rt.sendAndWaitForResponse(rt.sendCommand, cmd, qtmResponses); err != nil {
@@ -166,7 +166,7 @@ func (rt *Protocol) New(password string) error {
 	return nil
 }
 
-func (rt *Protocol) Close(password string) error {
+func (rt *Protocol) Close() error {
 	cmd := "Close"
 	qtmResponses := []string{"Closing connection", "Closing file"}
 	if err := rt.sendAndWaitForResponse(rt.sendCommand, cmd, qtmResponses); err != nil {
@@ -226,7 +226,7 @@ func (rt *Protocol) LoadProject(path string) error {
 	return nil
 }
 
-func (rt *Protocol) GetCaptureC3D(path string) error {
+func (rt *Protocol) GetCaptureC3D() error {
 	cmd := "GetCaptureC3D"
 	qtmResponses := []string{"Sending capture"}
 	if err := rt.sendAndWaitForResponse(rt.sendCommand, cmd, qtmResponses); err != nil {
@@ -235,7 +235,7 @@ func (rt *Protocol) GetCaptureC3D(path string) error {
 	return nil
 }
 
-func (rt *Protocol) GetCaptureQTM(path string) error {
+func (rt *Protocol) GetCaptureQTM() error {
 	cmd := "GetCaptureQTM"
 	qtmResponses := []string{"Sending capture"}
 	if err := rt.sendAndWaitForResponse(rt.sendCommand, cmd, qtmResponses); err != nil {
@@ -244,7 +244,7 @@ func (rt *Protocol) GetCaptureQTM(path string) error {
 	return nil
 }
 
-func (rt *Protocol) Trig(path string) error {
+func (rt *Protocol) Trig() error {
 	cmd := "Trig"
 	qtmResponses := []string{"Trig ok"}
 	if err := rt.sendAndWaitForResponse(rt.sendCommand, cmd, qtmResponses); err != nil {
@@ -262,7 +262,7 @@ func (rt *Protocol) SetQTMEvent(label string) error {
 	return nil
 }
 
-func (rt *Protocol) Reprocess(label string) error {
+func (rt *Protocol) Reprocess() error {
 	cmd := "Reprocess"
 	qtmResponses := []string{"Reprocessing file"}
 	if err := rt.sendAndWaitForResponse(rt.sendCommand, cmd, qtmResponses); err != nil {
