@@ -31,7 +31,7 @@ type SmpteTime struct {
 	Hour, Minute, Second, Frame uint32
 }
 
-func (i *SmpteTime) Convert(high, low uint32) {
+func (i *SmpteTime) Convert(_, low uint32) {
 	i.Hour = 0x1f & low
 	i.Minute = 0x3F & (low >> 5)
 	i.Second = 0x3F & (low >> 11)
