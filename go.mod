@@ -1,6 +1,6 @@
 module github.com/mlveggo/qualisys-go
 
-go 1.19
+go 1.20
 
 require gotest.tools v2.2.0+incompatible
 
