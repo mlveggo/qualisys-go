@@ -331,5 +331,5 @@ func (rt *Protocol) sendAndWaitForResponse(sender senderType, s string, expected
 			return nil
 		}
 	}
-	return fmt.Errorf("sendcommandandwaitforresponse: response " + p.CommandResponse)
+	return fmt.Errorf("sendcommandandwaitforresponse: response (%s)", p.CommandResponse)
 }

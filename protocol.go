@@ -74,7 +74,7 @@ func (rt *Protocol) Connect() error {
 	}
 	const qtmConnectedResponse string = "QTM RT Interface connected"
 	if p.CommandResponse != qtmConnectedResponse {
-		return fmt.Errorf("connect: unexpected response " + p.CommandResponse)
+		return fmt.Errorf("connect: unexpected response (%s)", p.CommandResponse)
 	}
 	const (
 		majorVer = 1
@@ -149,7 +149,7 @@ func (rt *Protocol) Receive() (*Packet, error) {
 		return nil, fmt.Errorf("receive: unmarshalbinary %w", err)
 	}
 	if p.Type == PacketTypeError {
-		return &p, fmt.Errorf("receive: error packet returned " + p.ErrorResponse)
+		return &p, fmt.Errorf("receive: error packet returned (%s)", p.ErrorResponse)
 	}
 	return &p, nil
 }
