@@ -65,7 +65,7 @@ func GitVerifyNoDiff(ctx context.Context) error {
 
 func Stringer(ctx context.Context) error {
 	sg.Logger(ctx).Println("building...")
-	_, err := sgtool.GoInstall(ctx, "golang.org/x/tools/cmd/stringer", "v0.10.0")
+	_, err := sgtool.GoInstall(ctx, "golang.org/x/tools/cmd/stringer", "v0.25.0")
 	return err
 }
 

@@ -103,11 +103,11 @@ func (dr *Response) String() string {
 }
 
 type Discovery struct {
-	receivePort int
+	receivePort uint16
 	timeout     time.Duration
 }
 
-func NewDiscovery(receivePort int, timeout time.Duration) *Discovery {
+func NewDiscovery(receivePort uint16, timeout time.Duration) *Discovery {
 	return &Discovery{receivePort: receivePort, timeout: timeout}
 }
 
@@ -117,7 +117,7 @@ func (d *Discovery) Discover() ([]Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	conn, err := net.ListenPacket("udp", ":"+strconv.Itoa(d.receivePort))
+	conn, err := net.ListenPacket("udp", ":"+strconv.Itoa(int(d.receivePort)))
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func (d *Discovery) Discover() ([]Response, error) {
 	data := make([]byte, 10)
 	binary.LittleEndian.PutUint32(data, 10)
 	binary.LittleEndian.PutUint32(data[4:8], 7)
-	binary.BigEndian.PutUint16(data[8:10], uint16(d.receivePort))
+	binary.BigEndian.PutUint16(data[8:10], d.receivePort)
 	for _, ip := range ips {
 		ipp := net.JoinHostPort(ip, broadcastPort)
 		addr, err := net.ResolveUDPAddr("udp", ipp)
