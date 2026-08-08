@@ -31,4 +31,4 @@ func main() {
 
 - It should always fail to connect to older QTM version (Support 1.22 and
   upwards)
-- StreamFrames - Missing support for \[:channels\] handling.
+- StreamFrames - Missing support for [:channels] handling.
