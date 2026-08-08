@@ -4,6 +4,10 @@ Go SDK for streaming motion capture data from Qualisys Track Manager (QTM).
 
 Zero external dependencies — only the Go standard library.
 
+Every example below also exists as a testable example in `example_test.go`, so
+`go test` compiles them and they cannot drift from the API. They appear in
+[godoc](https://pkg.go.dev/github.com/mlveggo/qualisys-go) too.
+
 ## Protocol version support
 
 The SDK speaks RT protocol **1.28** and negotiates downwards to **1.22** when
@@ -77,6 +81,13 @@ for {
 }
 ```
 
+`DataPacket` has a typed accessor for every component: `Markers3D`,
+`Markers3DResidual`, `Markers3DNoLabels`, `Markers3DNoLabelsResidual`,
+`Bodies6D`, `Bodies6DResidual`, `Bodies6DEuler`, `Bodies6DEulerResidual`,
+`Markers2D`, `Markers2DLinearized`, `Analog`, `AnalogSingle`, `Force`,
+`ForceSingle`, `Images`, `GazeVectors`, `EyeTrackers`, `Timecodes` and
+`Skeletons`. Each returns nil when the frame does not carry that component.
+
 ### Component options
 
 Analog channel selection and global skeleton coordinates are supported:
@@ -140,13 +151,22 @@ Errors are wrapped and matchable with `errors.Is`:
 
 A `Receive` timeout is *not* an error — it returns a `PacketTypeNoMoreData`
 packet with a nil error. `ErrTruncated` is different and means the connection
-must be re-established.
+must be re-established. `IsTimeout` covers both `ErrTimeout` and an underlying
+socket deadline.
 
 ## Forward compatibility
 
 A frame containing a component type this SDK does not recognise is still
-decoded; the unknown types are listed in `Packet.Data.Skipped` rather than
-failing the whole frame. This lets a client keep working against a newer QTM.
+decoded, and the undecodable component keeps its raw bytes as an
+`UnknownComponent` rather than failing the whole frame. This lets a client keep
+working against a newer QTM, and lets a caller who does know the format decode
+it themselves.
+
+```go
+for _, unknown := range p.Data.UnknownComponentTypes() {
+    log.Printf("component type %d could not be decoded", int(unknown))
+}
+```
 
 ## Examples
 
@@ -166,6 +186,21 @@ go test -race ./...
 
 Tests run entirely against an in-process fake QTM server; no hardware or
 network access is required.
+
+## Relationship to qualisys-rs
+
+[qualisys-rs](https://github.com/mlveggo/qualisys-rs) is the sibling Rust
+client. The two are kept feature-equivalent: same protocol version ladder, same
+component coverage, same component and parameter options, same UDP support, and
+the same treatment of undecodable components. Where the languages differ the
+APIs follow local idiom — Rust models packets as an enum and returns a
+connected client from `connect`, Go uses a struct with a type tag and separate
+`NewProtocol`/`Connect` — but the wire behaviour is identical.
+
+One deliberate asymmetry: this SDK ships two small XML helpers in
+`pkg/settings` for pulling 3D label names and 6D body names out of a settings
+response. The Rust crate exposes raw XML only, so that it keeps its single
+dependency rather than pulling in an XML parser.
 
 ## Known gaps versus the C++ SDK
 
