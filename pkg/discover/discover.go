@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -93,12 +95,12 @@ type Response struct {
 
 func (dr *Response) String() string {
 	return fmt.Sprintf(
-		"IP: %s\nHost: %s\nQTM Version: %s\nNumner of cameras: %d\nBase port: %d\n",
-		dr.Address,
+		"%s (%s) at %s:%d with %d cameras",
 		dr.Hostname,
 		dr.QtmVersion,
-		dr.Cameras,
+		dr.Address,
 		dr.BasePort,
+		dr.Cameras,
 	)
 }
 
@@ -158,12 +160,20 @@ func (d *Discovery) Discover() ([]Response, error) {
 			}
 			return nil, fmt.Errorf("discover: readfrom: %w", err)
 		}
-		ipAndPort := strings.Split(addr.String(), ":")
-		dr := Response{Address: ipAndPort[0]}
-		if err := dr.UnmarshalBinary(b[0:size]); err != nil {
-			return nil, fmt.Errorf("discover: unmarshal: %w", err)
+		host, _, splitErr := net.SplitHostPort(addr.String())
+		if splitErr != nil {
+			host = addr.String()
 		}
-		responses = append(responses, dr)
+		dr := Response{Address: host}
+		if err := dr.UnmarshalBinary(b[0:size]); err != nil {
+			// A malformed reply from one host should not abort discovery of
+			// the rest of the network.
+			log.Printf("discover: ignoring response from %s: %v", host, err)
+			continue
+		}
+		if !slices.Contains(responses, dr) {
+			responses = append(responses, dr)
+		}
 	}
 	return responses, nil
 }

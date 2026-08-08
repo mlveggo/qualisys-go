@@ -2,8 +2,13 @@ package packets
 
 import "fmt"
 
+// Point is a position in 3D space, in millimetres.
 type Point struct {
 	X, Y, Z float32
+}
+
+func (p Point) String() string {
+	return fmt.Sprintf("(%.3f, %.3f, %.3f)", p.X, p.Y, p.Z)
 }
 
 type ForceSample struct {
