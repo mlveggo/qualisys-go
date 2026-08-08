@@ -26,10 +26,10 @@ func handlePacket(p *qualisys.Packet) bool {
 		for _, c := range p.Data.Components {
 			log.Printf("Frame %d: %v", p.Data.Frame, c)
 		}
-		// Components this build of the SDK does not recognise are reported
-		// rather than silently discarding the whole frame.
-		for _, skipped := range p.Data.Skipped {
-			log.Printf("Frame %d: skipped unknown component type %d", p.Data.Frame, skipped)
+		// Components this build of the SDK does not recognise keep their raw
+		// bytes rather than being discarded with the rest of the frame.
+		for _, unknown := range p.Data.UnknownComponentTypes() {
+			log.Printf("Frame %d: undecodable component type %d", p.Data.Frame, unknown)
 		}
 	}
 	return true

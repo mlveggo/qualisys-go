@@ -89,11 +89,30 @@ func TestDataPacketSkipsUnknownComponentTypes(t *testing.T) {
 	if err := d.UnmarshalBinary(payload); err != nil {
 		t.Fatalf("an unknown component should not fail the frame: %v", err)
 	}
-	if len(d.Components) != 1 {
-		t.Errorf("got %d decoded components, want 1", len(d.Components))
+	// Both components are kept: the one that decoded and the one that could not.
+	if len(d.Components) != 2 {
+		t.Errorf("got %d components, want 2", len(d.Components))
 	}
-	if len(d.Skipped) != 1 || d.Skipped[0] != futureComponent {
-		t.Errorf("Skipped = %v, want [%d]", d.Skipped, futureComponent)
+	if d.Markers3D() == nil {
+		t.Error("the recognised component should still decode")
+	}
+	unknown := d.UnknownComponentTypes()
+	if len(unknown) != 1 || unknown[0] != futureComponent {
+		t.Errorf("UnknownComponentTypes = %v, want [%d]", unknown, futureComponent)
+	}
+	// The raw bytes are preserved so a caller that does know the format can
+	// decode it themselves.
+	var raw *UnknownComponent
+	for _, c := range d.Components {
+		if u, ok := c.(*UnknownComponent); ok {
+			raw = u
+		}
+	}
+	if raw == nil {
+		t.Fatal("no UnknownComponent in the frame")
+	}
+	if string(raw.Data) != string([]byte{1, 2, 3, 4, 5, 6}) {
+		t.Errorf("preserved payload = %v, want [1 2 3 4 5 6]", raw.Data)
 	}
 }
 
