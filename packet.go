@@ -53,11 +53,6 @@ type DataPacket struct {
 	Frame      uint32
 	Components []IDataObject
 
-	// Skipped lists component types present in the frame that this SDK does
-	// not know how to decode. A newer QTM may add components; recording them
-	// rather than failing keeps older clients working against newer servers.
-	Skipped []ComponentType
-
 	order binary.ByteOrder
 }
 
@@ -180,7 +175,6 @@ func (d *DataPacket) UnmarshalBinary(data []byte) error {
 	componentCount := order.Uint32(data[12:16])
 
 	d.Components = nil
-	d.Skipped = nil
 
 	pos := dataPacketHeaderSize
 	for i := uint32(0); i < componentCount; i++ {
@@ -200,17 +194,87 @@ func (d *DataPacket) UnmarshalBinary(data []byte) error {
 		}
 
 		payload := data[pos+componentHeaderSize : pos+csize]
-		if iobj := getComponentObject(ctype); iobj != nil {
-			if err := iobj.UnmarshalBinary(payload); err != nil {
-				return fmt.Errorf("datapacket: component %d (%v): %w", i, ctype, err)
-			}
-			d.Components = append(d.Components, iobj)
-		} else {
-			d.Skipped = append(d.Skipped, ctype)
+		iobj := getComponentObject(ctype)
+		if iobj == nil {
+			// Preserve the raw bytes rather than discarding them, so a caller
+			// that does understand a newer component can still decode it.
+			iobj = &UnknownComponent{Type: ctype}
 		}
+		if err := iobj.UnmarshalBinary(payload); err != nil {
+			return fmt.Errorf("datapacket: component %d (%v): %w", i, ctype, err)
+		}
+		d.Components = append(d.Components, iobj)
 		pos += csize
 	}
 	return nil
+}
+
+// UnknownComponent holds a component this SDK cannot decode.
+//
+// Newer QTM releases add components. Keeping the payload instead of failing the
+// frame means a client built against one protocol version keeps working, and
+// leaves the door open for a caller that does know the format.
+type UnknownComponent struct {
+	Type ComponentType
+	Data []byte
+}
+
+func (u *UnknownComponent) UnmarshalBinary(data []byte) error {
+	u.Data = make([]byte, len(data))
+	copy(u.Data, data)
+	return nil
+}
+
+func (u UnknownComponent) String() string {
+	return fmt.Sprintf("UnknownComponent{type: %d, %d bytes}", int(u.Type), len(u.Data))
+}
+
+// componentTypeOf reports the component type an already-decoded object came
+// from, and whether it was recognised.
+func componentTypeOf(obj IDataObject) (ComponentType, bool) {
+	switch v := obj.(type) {
+	case *packets.Component3D:
+		return ComponentType3D, true
+	case *packets.Component3DResidual:
+		return ComponentType3DResidual, true
+	case *packets.Component3DNoLabels:
+		return ComponentType3DNoLabels, true
+	case *packets.Component3DNoLabelsResidual:
+		return ComponentType3DNoLabelsResidual, true
+	case *packets.Component6D:
+		return ComponentType6D, true
+	case *packets.Component6DResidual:
+		return ComponentType6DResidual, true
+	case *packets.Component6DEuler:
+		return ComponentType6DEuler, true
+	case *packets.Component6DEulerResidual:
+		return ComponentType6DEulerResidual, true
+	case *packets.Component2D:
+		return ComponentType2D, true
+	case *packets.Component2DLinearized:
+		return ComponentType2DLinearized, true
+	case *packets.ComponentAnalog:
+		return ComponentTypeAnalog, true
+	case *packets.ComponentAnalogSingle:
+		return ComponentTypeAnalogSingle, true
+	case *packets.ComponentForce:
+		return ComponentTypeForce, true
+	case *packets.ComponentForceSingle:
+		return ComponentTypeForceSingle, true
+	case *packets.ComponentImage:
+		return ComponentTypeImage, true
+	case *packets.ComponentGazeVector:
+		return ComponentTypeGazeVector, true
+	case *packets.ComponentTimecode:
+		return ComponentTypeTimecode, true
+	case *packets.ComponentSkeleton:
+		return ComponentTypeSkeleton, true
+	case *packets.ComponentEyeTracker:
+		return ComponentTypeEyeTracker, true
+	case *UnknownComponent:
+		return v.Type, false
+	}
+	return 0, false
 }
 
 // Component returns the first decoded component of the requested type, or nil.
@@ -218,41 +282,138 @@ func (d *DataPacket) UnmarshalBinary(data []byte) error {
 // Iterating Components and type-switching works too, but this covers the common
 // case of "give me the 3D markers from this frame" without the boilerplate.
 func (d *DataPacket) Component(c ComponentType) IDataObject {
-	want := getComponentObject(c)
-	if want == nil {
-		return nil
-	}
-	wantType := fmt.Sprintf("%T", want)
 	for _, obj := range d.Components {
-		if fmt.Sprintf("%T", obj) == wantType {
+		if ctype, known := componentTypeOf(obj); known && ctype == c {
 			return obj
 		}
 	}
 	return nil
 }
 
+// UnknownComponentTypes lists component types present in the frame that this
+// SDK could not decode.
+func (d *DataPacket) UnknownComponentTypes() []ComponentType {
+	var out []ComponentType
+	for _, obj := range d.Components {
+		if u, ok := obj.(*UnknownComponent); ok {
+			out = append(out, u.Type)
+		}
+	}
+	return out
+}
+
 // Markers3D returns the labelled 3D component of the frame, if present.
 func (d *DataPacket) Markers3D() *packets.Component3D {
-	if c, ok := d.Component(ComponentType3D).(*packets.Component3D); ok {
-		return c
-	}
-	return nil
+	c, _ := d.Component(ComponentType3D).(*packets.Component3D)
+	return c
+}
+
+// Markers3DResidual returns the labelled 3D component with residuals.
+func (d *DataPacket) Markers3DResidual() *packets.Component3DResidual {
+	c, _ := d.Component(ComponentType3DResidual).(*packets.Component3DResidual)
+	return c
+}
+
+// Markers3DNoLabels returns the unlabelled 3D component.
+func (d *DataPacket) Markers3DNoLabels() *packets.Component3DNoLabels {
+	c, _ := d.Component(ComponentType3DNoLabels).(*packets.Component3DNoLabels)
+	return c
+}
+
+// Markers3DNoLabelsResidual returns the unlabelled 3D component with residuals.
+func (d *DataPacket) Markers3DNoLabelsResidual() *packets.Component3DNoLabelsResidual {
+	c, _ := d.Component(ComponentType3DNoLabelsResidual).(*packets.Component3DNoLabelsResidual)
+	return c
 }
 
 // Bodies6D returns the 6DOF matrix component of the frame, if present.
 func (d *DataPacket) Bodies6D() *packets.Component6D {
-	if c, ok := d.Component(ComponentType6D).(*packets.Component6D); ok {
-		return c
-	}
-	return nil
+	c, _ := d.Component(ComponentType6D).(*packets.Component6D)
+	return c
 }
 
-// Skeletons returns the skeleton component of the frame, if present.
+// Bodies6DResidual returns the 6DOF matrix component with residuals.
+func (d *DataPacket) Bodies6DResidual() *packets.Component6DResidual {
+	c, _ := d.Component(ComponentType6DResidual).(*packets.Component6DResidual)
+	return c
+}
+
+// Bodies6DEuler returns the 6DOF Euler component of the frame, if present.
+func (d *DataPacket) Bodies6DEuler() *packets.Component6DEuler {
+	c, _ := d.Component(ComponentType6DEuler).(*packets.Component6DEuler)
+	return c
+}
+
+// Bodies6DEulerResidual returns the 6DOF Euler component with residuals.
+func (d *DataPacket) Bodies6DEulerResidual() *packets.Component6DEulerResidual {
+	c, _ := d.Component(ComponentType6DEulerResidual).(*packets.Component6DEulerResidual)
+	return c
+}
+
+// Markers2D returns the per-camera 2D component of the frame, if present.
+func (d *DataPacket) Markers2D() *packets.Component2D {
+	c, _ := d.Component(ComponentType2D).(*packets.Component2D)
+	return c
+}
+
+// Markers2DLinearized returns the linearized per-camera 2D component.
+func (d *DataPacket) Markers2DLinearized() *packets.Component2DLinearized {
+	c, _ := d.Component(ComponentType2DLinearized).(*packets.Component2DLinearized)
+	return c
+}
+
+// Analog returns the multi-sample analog component, if present.
+func (d *DataPacket) Analog() *packets.ComponentAnalog {
+	c, _ := d.Component(ComponentTypeAnalog).(*packets.ComponentAnalog)
+	return c
+}
+
+// AnalogSingle returns the single-sample analog component, if present.
+func (d *DataPacket) AnalogSingle() *packets.ComponentAnalogSingle {
+	c, _ := d.Component(ComponentTypeAnalogSingle).(*packets.ComponentAnalogSingle)
+	return c
+}
+
+// Force returns the multi-sample force plate component, if present.
+func (d *DataPacket) Force() *packets.ComponentForce {
+	c, _ := d.Component(ComponentTypeForce).(*packets.ComponentForce)
+	return c
+}
+
+// ForceSingle returns the single-sample force plate component, if present.
+func (d *DataPacket) ForceSingle() *packets.ComponentForceSingle {
+	c, _ := d.Component(ComponentTypeForceSingle).(*packets.ComponentForceSingle)
+	return c
+}
+
+// Images returns the camera image component, if present.
+func (d *DataPacket) Images() *packets.ComponentImage {
+	c, _ := d.Component(ComponentTypeImage).(*packets.ComponentImage)
+	return c
+}
+
+// GazeVectors returns the gaze vector component, if present.
+func (d *DataPacket) GazeVectors() *packets.ComponentGazeVector {
+	c, _ := d.Component(ComponentTypeGazeVector).(*packets.ComponentGazeVector)
+	return c
+}
+
+// EyeTrackers returns the eye tracker component, if present.
+func (d *DataPacket) EyeTrackers() *packets.ComponentEyeTracker {
+	c, _ := d.Component(ComponentTypeEyeTracker).(*packets.ComponentEyeTracker)
+	return c
+}
+
+// Timecodes returns the timecode component, if present.
+func (d *DataPacket) Timecodes() *packets.ComponentTimecode {
+	c, _ := d.Component(ComponentTypeTimecode).(*packets.ComponentTimecode)
+	return c
+}
+
+// Skeletons returns the skeleton component, if present.
 func (d *DataPacket) Skeletons() *packets.ComponentSkeleton {
-	if c, ok := d.Component(ComponentTypeSkeleton).(*packets.ComponentSkeleton); ok {
-		return c
-	}
-	return nil
+	c, _ := d.Component(ComponentTypeSkeleton).(*packets.ComponentSkeleton)
+	return c
 }
 
 func trimStringResponse(data []byte) string {
