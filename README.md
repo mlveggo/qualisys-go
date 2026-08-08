@@ -1,34 +1,177 @@
 # qualisys-go
 
-Go sdk for Qualisys Track Manager streaming of motion capture data.
+Go SDK for streaming motion capture data from Qualisys Track Manager (QTM).
 
-## Discovery example
+Zero external dependencies — only the Go standard library.
 
-```Go
-package main
+## Protocol version support
 
-import (
-	"log"
-	"time"
+The SDK speaks RT protocol **1.28** and negotiates downwards to **1.22** when
+connecting to an older QTM, mirroring the negotiation in the official
+[C++ SDK](https://github.com/qualisys/qualisys_cpp_sdk). `Connect` tries the
+newest version first and walks down the ladder; if QTM accepts none of them it
+fails with `ErrVersionNotSupported` and closes the socket.
 
-	"github.com/mlveggo/qualisys-go/pkg/discover"
+```go
+rt := qualisys.NewProtocol("192.168.0.10", qualisys.DefaultBasePort)
+if err := rt.Connect(); err != nil {
+    log.Fatal(err)
+}
+major, minor := rt.Version() // the version actually agreed on
+```
+
+Pin a version, or disable the fallback, with options:
+
+```go
+rt := qualisys.NewProtocol(addr, port,
+    qualisys.WithVersion(1, 25),
+    qualisys.WithoutVersionNegotiation(),
 )
+```
 
-func main() {
-	discovery := discover.NewDiscovery(4545, 1*time.Second)
-	responses, err := discovery.Discover()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	for _, response := range responses {
-		log.Println(response)
-	}
+Because the settings XML root element is named after the negotiated version,
+never hard-code it. Use `ParametersElementName` or `StripParametersElement`:
+
+```go
+xml, _ := rt.GetParameters(qualisys.ParameterTypeImage)
+inner := rt.StripParametersElement(xml) // drops <QTM_Parameters_Ver_X.Y>
+```
+
+## Discovery
+
+```go
+discovery := discover.NewDiscovery(4545, 1*time.Second)
+responses, err := discovery.Discover()
+if err != nil {
+    log.Fatal(err)
+}
+for _, response := range responses {
+    log.Println(response)
 }
 ```
 
-## Issues
+## Streaming
 
-- It should always fail to connect to older QTM version (Support 1.22 and
-  upwards)
-- StreamFrames - Missing support for [:channels] handling.
+```go
+rt := qualisys.NewProtocol(ip, qualisys.DefaultBasePort)
+if err := rt.Connect(); err != nil {
+    log.Fatal(err)
+}
+defer rt.Disconnect()
+
+if err := rt.StreamFramesAll(qualisys.ComponentType3D, qualisys.ComponentType6D); err != nil {
+    log.Fatal(err)
+}
+
+for {
+    p, err := rt.Receive()
+    if err != nil {
+        log.Fatal(err)
+    }
+    if p.EndOfData() {
+        continue // nothing arrived within the read timeout
+    }
+    if markers := p.Data.Markers3D(); markers != nil {
+        log.Printf("frame %d: %d markers", p.Data.Frame, len(markers.Markers))
+    }
+}
+```
+
+### Component options
+
+Analog channel selection and global skeleton coordinates are supported:
+
+```go
+opts := qualisys.ComponentOptions{
+    AnalogChannels: "1,3,5-8", // sends "Analog:1,3,5-8"
+    SkeletonGlobal: true,      // sends "Skeleton:global"
+}
+rt.StreamFramesWithOptions(qualisys.StreamRateTypeFrequency, 100, opts,
+    qualisys.ComponentTypeAnalog, qualisys.ComponentTypeSkeleton)
+```
+
+### UDP streaming
+
+Keep commands on TCP and move the data stream to UDP:
+
+```go
+udpPort, err := rt.EnableUDPStream(0) // 0 lets the OS pick
+if err != nil {
+    log.Fatal(err)
+}
+rt.StreamFramesUDP(qualisys.StreamRateTypeAllFrames, 0, udpPort, "",
+    qualisys.ComponentOptions{}, qualisys.ComponentType3D)
+
+for {
+    p, err := rt.ReceiveUDP()
+    // ...
+}
+```
+
+## Timeouts
+
+Defaults are configurable per connection:
+
+```go
+rt := qualisys.NewProtocol(ip, port,
+    qualisys.WithReadTimeout(2*time.Second),
+    qualisys.WithConnectTimeout(10*time.Second),
+    qualisys.WithMaxPacketSize(64<<20),
+)
+```
+
+`Calibrate` takes its own timeout because a calibration takes minutes:
+
+```go
+resultXML, err := rt.Calibrate(false, 5*time.Minute)
+```
+
+## Error handling
+
+Errors are wrapped and matchable with `errors.Is`:
+
+| Sentinel                 | Meaning                                                      |
+| ------------------------ | ------------------------------------------------------------ |
+| `ErrNotConnected`        | Operation needs a live connection                             |
+| `ErrTimeout`             | No response within the timeout                                |
+| `ErrTruncated`           | Packet body never fully arrived; the stream is desynchronised |
+| `ErrVersionNotSupported` | QTM accepted no version this SDK speaks                       |
+| `packets.ErrShortPacket` | A component payload ended early                               |
+
+A `Receive` timeout is *not* an error — it returns a `PacketTypeNoMoreData`
+packet with a nil error. `ErrTruncated` is different and means the connection
+must be re-established.
+
+## Forward compatibility
+
+A frame containing a component type this SDK does not recognise is still
+decoded; the unknown types are listed in `Packet.Data.Skipped` rather than
+failing the whole frame. This lets a client keep working against a newer QTM.
+
+## Examples
+
+```
+go run ./cmd/discover
+go run ./cmd/streaming -addr 192.168.0.10
+go run ./cmd/streaming -udp -analog-channels 1,3,5-8
+go run ./cmd/settings -addr 192.168.0.10
+```
+
+## Testing
+
+```
+go test ./...
+go test -race ./...
+```
+
+Tests run entirely against an in-process fake QTM server; no hardware or
+network access is required.
+
+## Known gaps versus the C++ SDK
+
+- Settings XML is exposed as raw strings plus a few helpers in `pkg/settings`.
+  The C++ SDK has full typed (de)serialisation for General, Calibration, 3D, 6D,
+  Analog, Force, Image, GazeVector, EyeTracker and Skeleton settings, including
+  the typed `Set*Settings` writers.
+- Protocol versions below 1.22 (including the big-endian-only 1.0 mode on the
+  base port) are not implemented.
