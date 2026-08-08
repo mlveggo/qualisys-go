@@ -1,9 +1,6 @@
 package packets
 
-import (
-	"encoding/binary"
-	"fmt"
-)
+import "fmt"
 
 type GazeVectorSample struct {
 	X, Y, Z                         float32
@@ -22,6 +19,10 @@ type GazeVector struct {
 	Samples      []GazeVectorSample
 }
 
+func (g GazeVector) String() string {
+	return fmt.Sprintf("[samplenumber: %v samples: %v]", g.SampleNumber, g.Samples)
+}
+
 type ComponentGazeVector struct {
 	GazeVectors []GazeVector
 }
@@ -30,32 +31,40 @@ func (c ComponentGazeVector) String() string {
 	return fmt.Sprintf("GazeVectors: %v", c.GazeVectors)
 }
 
+// UnmarshalBinary decodes gaze vectors.
+//
+// A device with zero samples omits the sample number field entirely, so the
+// record is 4 bytes rather than 8. This matches the stride the C++ SDK uses:
+// 4 + (sampleCount == 0 ? 0 : 4) + sampleCount*24.
 func (c *ComponentGazeVector) UnmarshalBinary(data []byte) error {
 	if len(data) == 0 {
 		return nil
 	}
-	numberOfGazeVector := binary.LittleEndian.Uint32(data[0:4])
-	pos := 4
-	c.GazeVectors = make([]GazeVector, 0, numberOfGazeVector)
-	for m := uint32(0); m < numberOfGazeVector; m++ {
-		samples := binary.LittleEndian.Uint32(data[pos : pos+4])
-		if samples == 0 {
-			pos += 4
+	cur := newCursor(data)
+	deviceCount := cur.Uint32()
+	if !cur.checkCount(deviceCount, 4, "gaze vector") {
+		return cur.Err()
+	}
+
+	c.GazeVectors = make([]GazeVector, 0, deviceCount)
+	for i := uint32(0); i < deviceCount; i++ {
+		sampleCount := cur.Uint32()
+		if sampleCount == 0 {
+			c.GazeVectors = append(c.GazeVectors, GazeVector{})
 			continue
 		}
-		sampleNumber := binary.LittleEndian.Uint32(data[pos+4 : pos+8])
-		g := make([]GazeVectorSample, samples)
-		for i := uint32(0); i < samples; i++ {
-			g[i].X = Float32frombytes(data[pos+8 : pos+12])
-			g[i].Y = Float32frombytes(data[pos+12 : pos+16])
-			g[i].Z = Float32frombytes(data[pos+16 : pos+20])
-			g[i].PositionX = Float32frombytes(data[pos+20 : pos+24])
-			g[i].PositionY = Float32frombytes(data[pos+24 : pos+28])
-			g[i].PositionZ = Float32frombytes(data[pos+28 : pos+32])
-			pos += 24
+		gv := GazeVector{SampleNumber: cur.Uint32()}
+		if !cur.checkCount(sampleCount, 24, "gaze vector sample") {
+			return cur.Err()
 		}
-		c.GazeVectors = append(c.GazeVectors, GazeVector{SampleNumber: sampleNumber, Samples: g})
-		pos += 8
+		gv.Samples = make([]GazeVectorSample, sampleCount)
+		for s := uint32(0); s < sampleCount; s++ {
+			gv.Samples[s] = GazeVectorSample{
+				X: cur.Float32(), Y: cur.Float32(), Z: cur.Float32(),
+				PositionX: cur.Float32(), PositionY: cur.Float32(), PositionZ: cur.Float32(),
+			}
+		}
+		c.GazeVectors = append(c.GazeVectors, gv)
 	}
-	return nil
+	return cur.Err()
 }

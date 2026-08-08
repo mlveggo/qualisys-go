@@ -1,9 +1,6 @@
 package packets
 
-import (
-	"encoding/binary"
-	"fmt"
-)
+import "fmt"
 
 type EyeTrackerSample struct {
 	LeftPupilDiameter  float32
@@ -19,6 +16,10 @@ type EyeTracker struct {
 	Samples      []EyeTrackerSample
 }
 
+func (e EyeTracker) String() string {
+	return fmt.Sprintf("[samplenumber: %v samples: %v]", e.SampleNumber, e.Samples)
+}
+
 type ComponentEyeTracker struct {
 	EyeTrackers []EyeTracker
 }
@@ -27,28 +28,37 @@ func (c ComponentEyeTracker) String() string {
 	return fmt.Sprintf("Eyetrackers: %v", c.EyeTrackers)
 }
 
+// UnmarshalBinary decodes eye tracker pupil diameters. As with gaze vectors, a
+// device reporting zero samples omits the sample number field.
 func (c *ComponentEyeTracker) UnmarshalBinary(data []byte) error {
 	if len(data) == 0 {
 		return nil
 	}
-	numberOfEyeTrackers := binary.LittleEndian.Uint32(data[0:4])
-	pos := 4
-	c.EyeTrackers = make([]EyeTracker, 0, numberOfEyeTrackers)
-	for m := uint32(0); m < numberOfEyeTrackers; m++ {
-		samples := binary.LittleEndian.Uint32(data[pos : pos+4])
-		if samples == 0 {
-			pos += 4
+	cur := newCursor(data)
+	deviceCount := cur.Uint32()
+	if !cur.checkCount(deviceCount, 4, "eye tracker") {
+		return cur.Err()
+	}
+
+	c.EyeTrackers = make([]EyeTracker, 0, deviceCount)
+	for i := uint32(0); i < deviceCount; i++ {
+		sampleCount := cur.Uint32()
+		if sampleCount == 0 {
+			c.EyeTrackers = append(c.EyeTrackers, EyeTracker{})
 			continue
 		}
-		sampleNumber := binary.LittleEndian.Uint32(data[pos+4 : pos+8])
-		s := make([]EyeTrackerSample, samples)
-		for i := uint32(0); i < samples; i++ {
-			s[i].LeftPupilDiameter = Float32frombytes(data[pos+8 : pos+12])
-			s[i].RightPupilDiameter = Float32frombytes(data[pos+12 : pos+16])
-			pos += 8
+		et := EyeTracker{SampleNumber: cur.Uint32()}
+		if !cur.checkCount(sampleCount, 8, "eye tracker sample") {
+			return cur.Err()
 		}
-		c.EyeTrackers = append(c.EyeTrackers, EyeTracker{SampleNumber: sampleNumber, Samples: s})
-		pos += 8
+		et.Samples = make([]EyeTrackerSample, sampleCount)
+		for s := uint32(0); s < sampleCount; s++ {
+			et.Samples[s] = EyeTrackerSample{
+				LeftPupilDiameter:  cur.Float32(),
+				RightPupilDiameter: cur.Float32(),
+			}
+		}
+		c.EyeTrackers = append(c.EyeTrackers, et)
 	}
-	return nil
+	return cur.Err()
 }
