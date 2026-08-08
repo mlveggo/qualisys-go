@@ -1,6 +1,9 @@
 package packets
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 //go:generate stringer -type TimecodeType -trimprefix TimecodeType
 type TimecodeType uint32
@@ -58,7 +61,13 @@ func (i *SmpteTime) NormalizedSubFrame(captureFrequency, timestampFrequency uint
 	return float64(i.SubFrame) / float64(subFramesPerFrame)
 }
 
+// CameraTime is camera time in 100 nanosecond ticks.
 type CameraTime uint64
+
+// Duration converts the tick count to a time.Duration.
+func (i CameraTime) Duration() time.Duration {
+	return time.Duration(i) * 100 * time.Nanosecond
+}
 
 func (i *CameraTime) Convert(high, low uint32) {
 	*i = CameraTime((uint64(high) << 32) | uint64(low))
@@ -76,6 +85,10 @@ type Timecode struct {
 	Irig       IrigTime
 	Smpte      SmpteTime
 	CameraTime CameraTime
+
+	// High and Low hold the raw words for a timecode type this SDK does not
+	// recognise, so a caller that does know the format can still decode it.
+	High, Low uint32
 }
 
 func (c Timecode) String() string {
@@ -87,7 +100,7 @@ func (c Timecode) String() string {
 	case TimecodeTypeCameraTime:
 		return c.CameraTime.String()
 	}
-	return "unknown timecode"
+	return fmt.Sprintf("unknown timecode type %d (%#08x %#08x)", int(c.Type), c.High, c.Low)
 }
 
 type ComponentTimecode struct {
@@ -130,6 +143,8 @@ func (c *ComponentTimecode) UnmarshalBinary(data []byte) error {
 			tc.Irig.Convert(high, low)
 		case TimecodeTypeCameraTime:
 			tc.CameraTime.Convert(high, low)
+		default:
+			tc.High, tc.Low = high, low
 		}
 	}
 	return cur.Err()

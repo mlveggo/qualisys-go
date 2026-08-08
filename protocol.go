@@ -309,6 +309,14 @@ func (rt *Protocol) ParametersElementName() string {
 	return fmt.Sprintf("QTM_Parameters_Ver_%d.%d", rt.majorVersion, rt.minorVersion)
 }
 
+// LocalAddr returns the local address of the TCP connection.
+func (rt *Protocol) LocalAddr() net.Addr {
+	if rt.conn == nil {
+		return nil
+	}
+	return rt.conn.LocalAddr()
+}
+
 // State returns the most recent event QTM reported, including events observed
 // while waiting for a command response.
 func (rt *Protocol) State() EventType {
@@ -326,6 +334,12 @@ func (rt *Protocol) setReadDeadline(d time.Duration) error {
 func isTimeout(err error) bool {
 	var netErr net.Error
 	return errors.As(err, &netErr) && netErr.Timeout()
+}
+
+// IsTimeout reports whether err came from an operation timing out, whether that
+// was ErrTimeout from a command or an underlying socket deadline.
+func IsTimeout(err error) bool {
+	return errors.Is(err, ErrTimeout) || isTimeout(err)
 }
 
 // Receive reads the next packet using the configured read timeout.
