@@ -1,9 +1,6 @@
 package packets
 
-import (
-	"encoding/binary"
-	"fmt"
-)
+import "fmt"
 
 //go:generate stringer -type ImageFormatType -trimprefix ImageFormatType
 type ImageFormatType uint32
@@ -24,14 +21,14 @@ type Image struct {
 	Data                                     []byte
 }
 
+// String deliberately reports the payload length rather than dumping the bytes;
+// a single video frame is easily megabytes and printing it is never useful.
 func (c Image) String() string {
-	return fmt.Sprintf("[id: %v format: %v width: %v height: %v left: %v top: %v right: %v bottom: %v size: %v data: %v",
-		c.ID,
-		c.Format,
-		c.Width, c.Height,
+	return fmt.Sprintf(
+		"[id: %v format: %v width: %v height: %v left: %v top: %v right: %v bottom: %v size: %v data: %d bytes]",
+		c.ID, c.Format, c.Width, c.Height,
 		c.LeftCrop, c.TopCrop, c.RightCrop, c.BottomCrop,
-		c.Size,
-		c.Data,
+		c.Size, len(c.Data),
 	)
 }
 
@@ -39,33 +36,49 @@ type ComponentImage struct {
 	Images []Image
 }
 
-func (c ComponentImage) String() string {
-	return fmt.Sprintf("%v", c.Images)
-}
+func (c ComponentImage) String() string { return fmt.Sprintf("%v", c.Images) }
 
+// imageHeaderBytes is id, format, width, height, four crop floats and size.
+const imageHeaderBytes = 36
+
+// UnmarshalBinary decodes camera images.
+//
+// Two defects are fixed here. Width was read from a zero-length slice
+// (data[pos+8:pos+8]), which panicked on every image frame, and Data was
+// allocated with make([]byte, 0, size) before copy, so copy had nowhere to
+// write and every image came back empty.
 func (c *ComponentImage) UnmarshalBinary(data []byte) error {
 	if len(data) == 0 {
 		return nil
 	}
-	imageCount := binary.LittleEndian.Uint32(data[0:4])
-	pos := uint32(4)
+	cur := newCursor(data)
+	imageCount := cur.Uint32()
+	if !cur.checkCount(imageCount, imageHeaderBytes, "image") {
+		return cur.Err()
+	}
+
 	c.Images = make([]Image, 0, imageCount)
 	for i := uint32(0); i < imageCount; i++ {
-		image := Image{
-			ID:         binary.LittleEndian.Uint32(data[pos : pos+4]),
-			Format:     ImageFormatType(binary.LittleEndian.Uint32(data[pos+4 : pos+8])),
-			Width:      binary.LittleEndian.Uint32(data[pos+8 : pos+8]),
-			Height:     binary.LittleEndian.Uint32(data[pos+12 : pos+16]),
-			LeftCrop:   Float32frombytes(data[pos+16 : pos+20]),
-			TopCrop:    Float32frombytes(data[pos+20 : pos+24]),
-			RightCrop:  Float32frombytes(data[pos+24 : pos+28]),
-			BottomCrop: Float32frombytes(data[pos+28 : pos+32]),
-			Size:       binary.LittleEndian.Uint32(data[pos+32 : pos+36]),
+		img := Image{
+			ID:         cur.Uint32(),
+			Format:     ImageFormatType(cur.Uint32()),
+			Width:      cur.Uint32(),
+			Height:     cur.Uint32(),
+			LeftCrop:   cur.Float32(),
+			TopCrop:    cur.Float32(),
+			RightCrop:  cur.Float32(),
+			BottomCrop: cur.Float32(),
 		}
-		image.Data = make([]byte, 0, image.Size)
-		copy(image.Data, data[pos+36:pos+36+image.Size])
-		pos += 36 + image.Size
-		c.Images = append(c.Images, image)
+		img.Size = cur.Uint32()
+		if cur.Err() != nil {
+			return cur.Err()
+		}
+		if uint64(img.Size) > uint64(cur.Remaining()) {
+			return fmt.Errorf("%w: image %d claims %d bytes, %d remaining",
+				ErrShortPacket, img.ID, img.Size, cur.Remaining())
+		}
+		img.Data = cur.Bytes(int(img.Size))
+		c.Images = append(c.Images, img)
 	}
-	return nil
+	return cur.Err()
 }

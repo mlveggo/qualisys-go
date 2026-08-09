@@ -1,14 +1,14 @@
 package packets
 
-import (
-	"encoding/binary"
-	"fmt"
-)
+import "fmt"
 
 type Rotation struct {
 	X, Y, Z, W float32
 }
 
+// Segment is one skeleton segment. Position and rotation are relative to the
+// parent segment unless the stream was requested with the "global" option, in
+// which case they are in the global coordinate system.
 type Segment struct {
 	ID       uint32
 	Position Point
@@ -27,6 +27,8 @@ type Skeleton struct {
 	Segments []Segment
 }
 
+func (s Skeleton) String() string { return fmt.Sprintf("%v", s.Segments) }
+
 type ComponentSkeleton struct {
 	Skeletons []Skeleton
 }
@@ -35,29 +37,34 @@ func (c ComponentSkeleton) String() string {
 	return fmt.Sprintf("Skeletons: %v", c.Skeletons)
 }
 
+// segmentBytes is id + 3 position floats + 4 rotation floats.
+const segmentBytes = 32
+
 func (c *ComponentSkeleton) UnmarshalBinary(data []byte) error {
 	if len(data) == 0 {
 		return nil
 	}
-	numberOfSkeletons := binary.LittleEndian.Uint32(data[0:4])
-	pos := 4
-	c.Skeletons = make([]Skeleton, 0, numberOfSkeletons)
-	for m := uint32(0); m < numberOfSkeletons; m++ {
-		segments := binary.LittleEndian.Uint32(data[pos : pos+4])
-		s := make([]Segment, segments)
-		for i := uint32(0); i < segments; i++ {
-			s[i].ID = binary.LittleEndian.Uint32(data[pos+4 : pos+8])
-			s[i].Position.X = Float32frombytes(data[pos+8 : pos+12])
-			s[i].Position.Y = Float32frombytes(data[pos+12 : pos+16])
-			s[i].Position.Z = Float32frombytes(data[pos+16 : pos+20])
-			s[i].Rotation.X = Float32frombytes(data[pos+20 : pos+24])
-			s[i].Rotation.Y = Float32frombytes(data[pos+24 : pos+28])
-			s[i].Rotation.Z = Float32frombytes(data[pos+28 : pos+32])
-			s[i].Rotation.W = Float32frombytes(data[pos+32 : pos+36])
-			pos += 32
-		}
-		c.Skeletons = append(c.Skeletons, Skeleton{Segments: s})
-		pos += 4
+	cur := newCursor(data)
+	skeletonCount := cur.Uint32()
+	if !cur.checkCount(skeletonCount, 4, "skeleton") {
+		return cur.Err()
 	}
-	return nil
+
+	c.Skeletons = make([]Skeleton, 0, skeletonCount)
+	for i := uint32(0); i < skeletonCount; i++ {
+		segmentCount := cur.Uint32()
+		if !cur.checkCount(segmentCount, segmentBytes, "skeleton segment") {
+			return cur.Err()
+		}
+		segments := make([]Segment, segmentCount)
+		for s := uint32(0); s < segmentCount; s++ {
+			segments[s].ID = cur.Uint32()
+			segments[s].Position = cur.Point()
+			segments[s].Rotation = Rotation{
+				X: cur.Float32(), Y: cur.Float32(), Z: cur.Float32(), W: cur.Float32(),
+			}
+		}
+		c.Skeletons = append(c.Skeletons, Skeleton{Segments: segments})
+	}
+	return cur.Err()
 }

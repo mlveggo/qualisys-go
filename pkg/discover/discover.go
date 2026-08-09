@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -93,18 +94,28 @@ type Response struct {
 
 func (dr *Response) String() string {
 	return fmt.Sprintf(
-		"IP: %s\nHost: %s\nQTM Version: %s\nNumner of cameras: %d\nBase port: %d\n",
-		dr.Address,
+		"%s (%s) at %s:%d with %d cameras",
 		dr.Hostname,
 		dr.QtmVersion,
-		dr.Cameras,
+		dr.Address,
 		dr.BasePort,
+		dr.Cameras,
 	)
 }
 
 type Discovery struct {
 	receivePort uint16
 	timeout     time.Duration
+
+	// OnMalformedResponse, if set, is called for every reply that could not be
+	// decoded, with the address it arrived from. Discovery continues either
+	// way: one bad reply must not hide every other QTM on the network. Leaving
+	// it nil skips those replies silently.
+	//
+	// This exists because writing to the global logger from a library is a
+	// side effect the caller can neither redirect nor switch off. Whether a
+	// malformed reply is worth reporting, and where, belongs to the caller.
+	OnMalformedResponse func(addr string, err error)
 }
 
 func NewDiscovery(receivePort uint16, timeout time.Duration) *Discovery {
@@ -158,12 +169,22 @@ func (d *Discovery) Discover() ([]Response, error) {
 			}
 			return nil, fmt.Errorf("discover: readfrom: %w", err)
 		}
-		ipAndPort := strings.Split(addr.String(), ":")
-		dr := Response{Address: ipAndPort[0]}
-		if err := dr.UnmarshalBinary(b[0:size]); err != nil {
-			return nil, fmt.Errorf("discover: unmarshal: %w", err)
+		host, _, splitErr := net.SplitHostPort(addr.String())
+		if splitErr != nil {
+			host = addr.String()
 		}
-		responses = append(responses, dr)
+		dr := Response{Address: host}
+		if err := dr.UnmarshalBinary(b[0:size]); err != nil {
+			// A malformed reply from one host should not abort discovery of
+			// the rest of the network.
+			if d.OnMalformedResponse != nil {
+				d.OnMalformedResponse(host, err)
+			}
+			continue
+		}
+		if !slices.Contains(responses, dr) {
+			responses = append(responses, dr)
+		}
 	}
 	return responses, nil
 }
