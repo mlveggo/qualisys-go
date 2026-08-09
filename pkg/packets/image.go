@@ -24,7 +24,8 @@ type Image struct {
 // String deliberately reports the payload length rather than dumping the bytes;
 // a single video frame is easily megabytes and printing it is never useful.
 func (c Image) String() string {
-	return fmt.Sprintf("[id: %v format: %v width: %v height: %v left: %v top: %v right: %v bottom: %v size: %v data: %d bytes]",
+	return fmt.Sprintf(
+		"[id: %v format: %v width: %v height: %v left: %v top: %v right: %v bottom: %v size: %v data: %d bytes]",
 		c.ID, c.Format, c.Width, c.Height,
 		c.LeftCrop, c.TopCrop, c.RightCrop, c.BottomCrop,
 		c.Size, len(c.Data),

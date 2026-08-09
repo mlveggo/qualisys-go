@@ -44,7 +44,7 @@ func (d *FilePacket) WriteFile(path string) error {
 	if len(d.File) == 0 {
 		return fmt.Errorf("filepacket: no file content received")
 	}
-	if err := os.WriteFile(path, d.File, 0o644); err != nil {
+	if err := os.WriteFile(path, d.File, 0o600); err != nil {
 		return fmt.Errorf("filepacket: write %s: %w", path, err)
 	}
 	return nil

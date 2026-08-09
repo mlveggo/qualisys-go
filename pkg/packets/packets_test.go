@@ -11,17 +11,21 @@ import (
 type builder struct{ b []byte }
 
 func (w *builder) u8(v uint8) *builder { w.b = append(w.b, v); return w }
+
 func (w *builder) u16(v uint16) *builder {
 	w.b = binary.LittleEndian.AppendUint16(w.b, v)
 	return w
 }
+
 func (w *builder) u32(v uint32) *builder {
 	w.b = binary.LittleEndian.AppendUint32(w.b, v)
 	return w
 }
+
 func (w *builder) f32(v float32) *builder {
 	return w.u32(math.Float32bits(v))
 }
+
 func (w *builder) raw(p []byte) *builder { w.b = append(w.b, p...); return w }
 
 func TestComponentImageDecodesHeaderAndPayload(t *testing.T) {

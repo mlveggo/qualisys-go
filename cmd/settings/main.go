@@ -13,6 +13,14 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+// run holds the body of main so that log.Fatal is reached only after every
+// deferred cleanup has run. Calling log.Fatal directly would skip them.
+func run() error {
 	addr := flag.String("addr", "", "QTM address; discovered by broadcast when empty")
 	port := flag.Int("port", qualisys.DefaultBasePort, "QTM base port")
 	password := flag.String("password", "", "password for TakeControl")
@@ -36,17 +44,17 @@ func main() {
 
 	log.Printf("Connecting to %s:%d", ip, basePort)
 	if err := rt.Connect(); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	major, minor := rt.Version()
 	log.Printf("Connected using RT protocol version %d.%d", major, minor)
 
 	xml, err := rt.GetParameters(qualisys.ParameterTypeImage)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if err := rt.TakeControl(*password); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer func() { _ = rt.ReleaseControl() }()
 
@@ -57,16 +65,16 @@ func main() {
 	inner = strings.ReplaceAll(inner, "<Enabled>false</Enabled>", "<Enabled>true</Enabled>")
 
 	if err := rt.SetParameters(inner); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if err := rt.StreamFramesAll(qualisys.ComponentTypeImage); err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	for {
 		p, err := rt.Receive()
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		if p.EndOfData() {
 			continue

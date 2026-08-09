@@ -7,6 +7,10 @@ package qualisys_test
 //
 // They also show up in godoc alongside the functions they demonstrate, so the
 // documentation and the compiled-and-checked code are the same text.
+//
+// Note the error handling: once Disconnect is deferred the examples log and
+// return rather than calling log.Fatal, which exits the process and would skip
+// every deferred call.
 
 import (
 	"errors"
@@ -18,7 +22,7 @@ import (
 	"github.com/mlveggo/qualisys-go/pkg/discover"
 )
 
-// Connect, stream every frame and print the labelled 3D markers.
+// Connect, stream every frame and print the labeled 3D markers.
 func Example() {
 	rt := qualisys.NewProtocol("192.168.0.10", qualisys.DefaultBasePort)
 	if err := rt.Connect(); err != nil {
@@ -30,13 +34,15 @@ func Example() {
 	fmt.Printf("negotiated protocol %d.%d\n", major, minor)
 
 	if err := rt.StreamFramesAll(qualisys.ComponentType3D); err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 
 	for {
 		p, err := rt.Receive()
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
+			return
 		}
 		// An idle socket is not an error.
 		if p.EndOfData() {
@@ -86,13 +92,15 @@ func ExampleProtocol_StripParametersElement() {
 
 	xml, err := rt.GetParameters(qualisys.ParameterTypeImage)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 
 	// Drops <QTM_Parameters_Ver_X.Y> for whichever version was agreed on.
 	fragment := rt.StripParametersElement(xml)
 	if err := rt.SetParameters(fragment); err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 }
 
@@ -113,7 +121,8 @@ func ExampleProtocol_StreamFramesWithOptions() {
 		qualisys.StreamRateTypeFrequency, 100, opts,
 		qualisys.ComponentTypeAnalog, qualisys.ComponentTypeSkeleton,
 	); err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 }
 
@@ -127,7 +136,8 @@ func ExampleProtocol_StreamFramesUDP() {
 
 	udpPort, err := rt.EnableUDPStream(0) // 0 lets the OS choose
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 
 	// An empty address means QTM replies to the TCP connection's address.
@@ -135,13 +145,15 @@ func ExampleProtocol_StreamFramesUDP() {
 		qualisys.StreamRateTypeAllFrames, 0, udpPort, "",
 		qualisys.ComponentOptions{}, qualisys.ComponentType3D,
 	); err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 
 	for {
 		p, err := rt.ReceiveUDP()
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
+			return
 		}
 		if p.EndOfData() {
 			continue
@@ -172,11 +184,13 @@ func ExampleProtocol_Calibrate() {
 	defer rt.Disconnect()
 
 	if err := rt.TakeControl(""); err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 	calibrationXML, err := rt.Calibrate(false, 5*time.Minute)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 	fmt.Println(calibrationXML)
 }
@@ -198,7 +212,8 @@ func ExampleProtocol_Receive_errorHandling() {
 			log.Println("stream desynchronised, reconnecting")
 			return
 		case err != nil:
-			log.Fatal(err)
+			log.Println(err)
+			return
 		case p.EndOfData():
 			// Nothing arrived within the read timeout.
 			continue
@@ -218,10 +233,15 @@ func ExampleDataPacket_UnknownComponentTypes() {
 
 	p, err := rt.Receive()
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 	for _, unknown := range p.Data.UnknownComponentTypes() {
-		fmt.Printf("QTM sent component type %d, which this build cannot decode\n", int(unknown))
+		// The payload is kept, so a caller who knows the newer format can
+		// decode it. Component would return nil here: it only hands back
+		// components this SDK decoded itself.
+		raw := p.Data.UnknownComponentData(unknown)
+		fmt.Printf("QTM sent component type %d, %d raw bytes kept\n", int(unknown), len(raw))
 	}
 }
 
@@ -234,6 +254,7 @@ func ExampleProtocol_SaveCaptureC3D() {
 	defer rt.Disconnect()
 
 	if err := rt.SaveCaptureC3D("capture.c3d"); err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 }

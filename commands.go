@@ -148,42 +148,61 @@ type ComponentOptions struct {
 	SkeletonGlobal bool
 }
 
-// componentNames maps each component to the token QTM accepts on the wire.
+// componentName returns the token QTM accepts on the wire for a component, and
+// whether the component is known at all.
 //
 // ComponentType3DNoLabelsResidual previously mapped to "3dNoLabelsResidual",
-// which QTM does not recognise -- the accepted token is "3DNoLabelsRes", so
+// which QTM does not recognize -- the accepted token is "3DNoLabelsRes", so
 // requesting that component silently produced no data.
-var componentNames = map[ComponentType]string{
-	ComponentType3D:                 "3D",
-	ComponentType3DNoLabels:         "3DNoLabels",
-	ComponentTypeAnalog:             "Analog",
-	ComponentTypeForce:              "Force",
-	ComponentType6D:                 "6D",
-	ComponentType6DEuler:            "6DEuler",
-	ComponentType2D:                 "2D",
-	ComponentType2DLinearized:       "2DLin",
-	ComponentType3DResidual:         "3DRes",
-	ComponentType3DNoLabelsResidual: "3DNoLabelsRes",
-	ComponentType6DResidual:         "6DRes",
-	ComponentType6DEulerResidual:    "6DEulerRes",
-	ComponentTypeAnalogSingle:       "AnalogSingle",
-	ComponentTypeImage:              "Image",
-	ComponentTypeForceSingle:        "ForceSingle",
-	ComponentTypeGazeVector:         "GazeVector",
-	ComponentTypeTimecode:           "Timecode",
-	ComponentTypeSkeleton:           "Skeleton",
-	ComponentTypeEyeTracker:         "EyeTracker",
-}
-
-func (rt Protocol) getComponentString(c ComponentType) string {
-	return componentNames[c]
+func componentName(c ComponentType) (string, bool) {
+	switch c {
+	case ComponentType3D:
+		return "3D", true
+	case ComponentType3DNoLabels:
+		return "3DNoLabels", true
+	case ComponentTypeAnalog:
+		return "Analog", true
+	case ComponentTypeForce:
+		return "Force", true
+	case ComponentType6D:
+		return "6D", true
+	case ComponentType6DEuler:
+		return "6DEuler", true
+	case ComponentType2D:
+		return "2D", true
+	case ComponentType2DLinearized:
+		return "2DLin", true
+	case ComponentType3DResidual:
+		return "3DRes", true
+	case ComponentType3DNoLabelsResidual:
+		return "3DNoLabelsRes", true
+	case ComponentType6DResidual:
+		return "6DRes", true
+	case ComponentType6DEulerResidual:
+		return "6DEulerRes", true
+	case ComponentTypeAnalogSingle:
+		return "AnalogSingle", true
+	case ComponentTypeImage:
+		return "Image", true
+	case ComponentTypeForceSingle:
+		return "ForceSingle", true
+	case ComponentTypeGazeVector:
+		return "GazeVector", true
+	case ComponentTypeTimecode:
+		return "Timecode", true
+	case ComponentTypeSkeleton:
+		return "Skeleton", true
+	case ComponentTypeEyeTracker:
+		return "EyeTracker", true
+	}
+	return "", false
 }
 
 // componentString renders a component list with any applicable options.
 func componentString(opts ComponentOptions, components ...ComponentType) (string, error) {
 	parts := make([]string, 0, len(components))
 	for _, c := range components {
-		name, ok := componentNames[c]
+		name, ok := componentName(c)
 		if !ok {
 			return "", fmt.Errorf("unknown component type %d", int(c))
 		}
@@ -230,7 +249,12 @@ func (rt *Protocol) StreamFrames(rate StreamRateType, value int, components ...C
 }
 
 // StreamFramesWithOptions starts streaming with per-component options.
-func (rt *Protocol) StreamFramesWithOptions(rate StreamRateType, value int, opts ComponentOptions, components ...ComponentType) error {
+func (rt *Protocol) StreamFramesWithOptions(
+	rate StreamRateType,
+	value int,
+	opts ComponentOptions,
+	components ...ComponentType,
+) error {
 	return rt.streamFrames(rate, value, 0, "", opts, components...)
 }
 
@@ -240,7 +264,13 @@ func (rt *Protocol) StreamFramesWithOptions(rate StreamRateType, value int, opts
 // udpAddr may be empty, in which case QTM sends to the address the TCP
 // connection came from. Use EnableUDPStream to have the SDK open a receiving
 // socket and then read frames with ReceiveUDP.
-func (rt *Protocol) StreamFramesUDP(rate StreamRateType, value int, udpPort int, udpAddr string, opts ComponentOptions, components ...ComponentType) error {
+func (rt *Protocol) StreamFramesUDP(
+	rate StreamRateType,
+	value, udpPort int,
+	udpAddr string,
+	opts ComponentOptions,
+	components ...ComponentType,
+) error {
 	if udpPort <= 0 || udpPort > 65535 {
 		return fmt.Errorf("streamframesudp: invalid udp port %d", udpPort)
 	}
@@ -250,7 +280,13 @@ func (rt *Protocol) StreamFramesUDP(rate StreamRateType, value int, udpPort int,
 	return rt.streamFrames(rate, value, udpPort, udpAddr, opts, components...)
 }
 
-func (rt *Protocol) streamFrames(rate StreamRateType, value, udpPort int, udpAddr string, opts ComponentOptions, components ...ComponentType) error {
+func (rt *Protocol) streamFrames(
+	rate StreamRateType,
+	value, udpPort int,
+	udpAddr string,
+	opts ComponentOptions,
+	components ...ComponentType,
+) error {
 	var b strings.Builder
 	b.WriteString("StreamFrames")
 	switch rate {
@@ -328,6 +364,10 @@ func (rt *Protocol) UDPServerPort() int {
 	return 0
 }
 
+// maxUDPDatagramSize is the largest a UDP payload can be, so a single read
+// can never truncate a datagram.
+const maxUDPDatagramSize = 65536
+
 // ReceiveUDP reads one datagram from the UDP stream socket and decodes it.
 //
 // Each QTM UDP datagram carries exactly one complete packet, so unlike the TCP
@@ -341,8 +381,13 @@ func (rt *Protocol) ReceiveUDP() (*Packet, error) {
 			return &Packet{Type: PacketTypeNone}, fmt.Errorf("receiveudp: set deadline: %w", err)
 		}
 	}
-	buf := make([]byte, 65536)
-	n, _, err := rt.udpConn.ReadFromUDP(buf)
+	// Reused across calls: a fresh 64 KiB per frame is real GC pressure at
+	// streaming rates. Every decoder copies what it keeps -- see
+	// packets.cursor.Bytes -- so overwriting this on the next call is safe.
+	if rt.udpBuffer == nil {
+		rt.udpBuffer = make([]byte, maxUDPDatagramSize)
+	}
+	n, _, err := rt.udpConn.ReadFromUDP(rt.udpBuffer)
 	if err != nil {
 		if isTimeout(err) {
 			return &Packet{Type: PacketTypeNoMoreData}, nil
@@ -353,7 +398,7 @@ func (rt *Protocol) ReceiveUDP() (*Packet, error) {
 		return &Packet{Type: PacketTypeNone}, fmt.Errorf("receiveudp: datagram too short (%d bytes)", n)
 	}
 	p := &Packet{order: rt.order}
-	if err := p.UnmarshalBinary(buf[:n]); err != nil {
+	if err := p.UnmarshalBinary(rt.udpBuffer[:n]); err != nil {
 		return &Packet{Type: PacketTypeNone}, fmt.Errorf("receiveudp: unmarshal: %w", err)
 	}
 	return p, nil
@@ -499,7 +544,7 @@ func (rt *Protocol) Trig() error {
 	return nil
 }
 
-// SetQTMEvent inserts a labelled event into the current measurement.
+// SetQTMEvent inserts a labeled event into the current measurement.
 func (rt *Protocol) SetQTMEvent(label string) error {
 	// The command was renamed from "Event" in protocol version 1.8.
 	cmd := "SetQTMEvent "

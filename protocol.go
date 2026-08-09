@@ -101,6 +101,12 @@ type Protocol struct {
 	udpConn *net.UDPConn
 	buffer  []byte
 
+	// udpBuffer is the receive buffer for the UDP data path. It is deliberately
+	// separate from buffer: commands keep flowing on TCP while data frames
+	// arrive over UDP, so the two paths are commonly driven from different
+	// goroutines and must not share a scratch buffer.
+	udpBuffer []byte
+
 	ip       string
 	basePort int
 

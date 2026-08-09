@@ -23,18 +23,34 @@ const (
 	ParameterTypeSkeleton
 )
 
-var parameterNames = map[ParameterType]string{
-	ParameterTypeAll:         "All",
-	ParameterTypeGeneral:     "General",
-	ParameterTypeCalibration: "Calibration",
-	ParameterType3D:          "3D",
-	ParameterType6D:          "6D",
-	ParameterTypeAnalog:      "Analog",
-	ParameterTypeForce:       "Force",
-	ParameterTypeImage:       "Image",
-	ParameterTypeGazeVector:  "GazeVector",
-	ParameterTypeEyeTracker:  "EyeTracker",
-	ParameterTypeSkeleton:    "Skeleton",
+// parameterName returns the token QTM accepts for a settings section, and
+// whether the section is known at all.
+func parameterName(p ParameterType) (string, bool) {
+	switch p {
+	case ParameterTypeAll:
+		return "All", true
+	case ParameterTypeGeneral:
+		return "General", true
+	case ParameterTypeCalibration:
+		return "Calibration", true
+	case ParameterType3D:
+		return "3D", true
+	case ParameterType6D:
+		return "6D", true
+	case ParameterTypeAnalog:
+		return "Analog", true
+	case ParameterTypeForce:
+		return "Force", true
+	case ParameterTypeImage:
+		return "Image", true
+	case ParameterTypeGazeVector:
+		return "GazeVector", true
+	case ParameterTypeEyeTracker:
+		return "EyeTracker", true
+	case ParameterTypeSkeleton:
+		return "Skeleton", true
+	}
+	return "", false
 }
 
 // ParameterOptions carries modifiers accepted after a parameter name.
@@ -64,7 +80,7 @@ func (rt *Protocol) GetParametersWithOptions(opts ParameterOptions, parameters .
 
 	names := make([]string, 0, len(parameters))
 	for _, p := range parameters {
-		name, ok := parameterNames[p]
+		name, ok := parameterName(p)
 		if !ok {
 			return "", fmt.Errorf("getparameters: unknown parameter type %d", int(p))
 		}
