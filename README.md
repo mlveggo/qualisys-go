@@ -143,8 +143,8 @@ resultXML, err := rt.Calibrate(false, 5*time.Minute)
 
 Errors are wrapped and matchable with `errors.Is`:
 
-| Sentinel                 | Meaning                                                      |
-| ------------------------ | ------------------------------------------------------------ |
+| Sentinel                 | Meaning                                                       |
+| ------------------------ | ------------------------------------------------------------- |
 | `ErrNotConnected`        | Operation needs a live connection                             |
 | `ErrTimeout`             | No response within the timeout                                |
 | `ErrTruncated`           | Packet body never fully arrived; the stream is desynchronised |
@@ -189,8 +189,8 @@ go test ./...
 go test -race ./...
 ```
 
-Tests run entirely against an in-process fake QTM server; no hardware or
-network access is required.
+Tests run entirely against an in-process fake QTM server; no hardware or network
+access is required.
 
 ## Relationship to qualisys-rs
 
@@ -198,14 +198,14 @@ network access is required.
 client. The two are kept feature-equivalent: same protocol version ladder, same
 component coverage, same component and parameter options, same UDP support, and
 the same treatment of undecodable components. Where the languages differ the
-APIs follow local idiom — Rust models packets as an enum and returns a
-connected client from `connect`, Go uses a struct with a type tag and separate
+APIs follow local idiom — Rust models packets as an enum and returns a connected
+client from `connect`, Go uses a struct with a type tag and separate
 `NewProtocol`/`Connect` — but the wire behaviour is identical.
 
-One deliberate asymmetry: this SDK ships two small XML helpers in
-`pkg/settings` for pulling 3D label names and 6D body names out of a settings
-response. The Rust crate exposes raw XML only, so that it keeps its single
-dependency rather than pulling in an XML parser.
+One deliberate asymmetry: this SDK ships two small XML helpers in `pkg/settings`
+for pulling 3D label names and 6D body names out of a settings response. The
+Rust crate exposes raw XML only, so that it keeps its single dependency rather
+than pulling in an XML parser.
 
 ## Known gaps versus the C++ SDK
 
