@@ -15,6 +15,11 @@ func main() {
 	flag.Parse()
 
 	discovery := discover.NewDiscovery(uint16(*port), *timeout)
+	// A command is the right place to write to the process logger; the library
+	// reports malformed replies through this hook instead of logging itself.
+	discovery.OnMalformedResponse = func(addr string, err error) {
+		log.Printf("ignoring response from %s: %v", addr, err)
+	}
 	responses, err := discovery.Discover()
 	if err != nil {
 		log.Fatal(err)

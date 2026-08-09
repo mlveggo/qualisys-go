@@ -12,11 +12,11 @@ func (m Marker) String() string {
 	return fmt.Sprintf("[id: %v x:%v y:%v z:%v r:%v]", m.ID, m.Point.X, m.Point.Y, m.Point.Z, m.Residual)
 }
 
-// Component3D holds labelled 3D markers.
+// Component3D holds labeled 3D markers.
 //
 // Markers arrive in the same order as the labels in the 3D settings XML, so
 // index N here corresponds to label N from GetParameters 3D. The wire format
-// carries no per-marker ID for labelled markers; ID is only populated for the
+// carries no per-marker ID for labeled markers; ID is only populated for the
 // NoLabels variants.
 type Component3D struct {
 	Droprate      uint16

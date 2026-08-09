@@ -2,7 +2,7 @@ package packets
 
 import "fmt"
 
-// Point is a position in 3D space, in millimetres.
+// Point is a position in 3D space, in millimeters.
 type Point struct {
 	X, Y, Z float32
 }
@@ -47,7 +47,7 @@ func (c ComponentForce) String() string {
 	return s
 }
 
-// forceSampleBytes is 9 float32: force, moment and centre of pressure.
+// forceSampleBytes is 9 float32: force, moment and center of pressure.
 const forceSampleBytes = 36
 
 func (c *ComponentForce) UnmarshalBinary(data []byte) error {

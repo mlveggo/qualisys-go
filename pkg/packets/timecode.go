@@ -87,7 +87,7 @@ type Timecode struct {
 	CameraTime CameraTime
 
 	// High and Low hold the raw words for a timecode type this SDK does not
-	// recognise, so a caller that does know the format can still decode it.
+	// recognize, so a caller that does know the format can still decode it.
 	High, Low uint32
 }
 

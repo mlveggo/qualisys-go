@@ -130,7 +130,7 @@ func (f *fakeQTM) sentCommands() []string {
 
 // waitForCommand polls until cmd has been received or the deadline passes.
 // Fire-and-forget commands such as StreamFrames send no reply, so the test has
-// no response to synchronise on.
+// no response to synchronize on.
 func (f *fakeQTM) waitForCommand(cmd string, within time.Duration) bool {
 	deadline := time.Now().Add(within)
 	for time.Now().Before(deadline) {
@@ -262,7 +262,9 @@ func TestReceiveHandlesHeaderSplitAcrossWrites(t *testing.T) {
 	f.onConn = func(conn net.Conn) {
 		pkt := commandPacket("QTM RT Interface connected")
 		for _, chunk := range [][]byte{pkt[:3], pkt[3:6], pkt[6:]} {
-			conn.Write(chunk)
+			if _, err := conn.Write(chunk); err != nil {
+				return
+			}
 			time.Sleep(10 * time.Millisecond)
 		}
 		time.Sleep(time.Second)
@@ -294,7 +296,9 @@ func TestReceiveReportsTruncatedPacket(t *testing.T) {
 	f.welcome = nil
 	f.onConn = func(conn net.Conn) {
 		full := commandPacket("this response never fully arrives")
-		conn.Write(full[:12]) // header plus a few bytes only
+		if _, err := conn.Write(full[:12]); err != nil { // header plus a few bytes only
+			return
+		}
 		time.Sleep(2 * time.Second)
 	}
 	f.start()
@@ -320,7 +324,9 @@ func TestReceiveRejectsAbsurdPacketSize(t *testing.T) {
 		b := make([]byte, packetHeaderSize)
 		binary.LittleEndian.PutUint32(b[0:4], 0xFFFFFFF0)
 		binary.LittleEndian.PutUint32(b[4:8], uint32(PacketTypeCommand))
-		conn.Write(b)
+		if _, err := conn.Write(b); err != nil {
+			return
+		}
 		time.Sleep(time.Second)
 	}
 	f.start()
@@ -341,7 +347,7 @@ func TestReceiveRejectsAbsurdPacketSize(t *testing.T) {
 func TestReceiveTimeoutYieldsNoMoreData(t *testing.T) {
 	f := newFakeQTM(t)
 	f.welcome = nil
-	f.onConn = func(conn net.Conn) { time.Sleep(time.Second) }
+	f.onConn = func(_ net.Conn) { time.Sleep(time.Second) }
 	f.start()
 
 	rt := NewProtocol("127.0.0.1", f.basePort(), WithReadTimeout(50*time.Millisecond))

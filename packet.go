@@ -138,12 +138,6 @@ func getComponentObject(c ComponentType) IDataObject {
 	return nil
 }
 
-// Deprecated: use the package-level getComponentObject. Retained as a method
-// for source compatibility.
-func (d DataPacket) getComponentObject(c ComponentType) IDataObject {
-	return getComponentObject(c)
-}
-
 // dataPacketHeaderSize is timestamp (8) + frame number (4) + component count (4).
 const dataPacketHeaderSize = 16
 
@@ -157,7 +151,7 @@ const componentHeaderSize = 8
 // bounds checked, so a truncated frame is an error rather than a panic. Each
 // component parser receives exactly its own slice instead of everything to the
 // end of the buffer, so one component's parser cannot wander into the next
-// one's data. And an unrecognised component type is skipped and recorded rather
+// one's data. And an unrecognized component type is skipped and recorded rather
 // than aborting the whole frame, which is what lets a client built against one
 // protocol version keep working when QTM starts sending a component it has
 // never heard of.
@@ -230,7 +224,7 @@ func (u UnknownComponent) String() string {
 }
 
 // componentTypeOf reports the component type an already-decoded object came
-// from, and whether it was recognised.
+// from, and whether it was recognized.
 func componentTypeOf(obj IDataObject) (ComponentType, bool) {
 	switch v := obj.(type) {
 	case *packets.Component3D:
@@ -281,10 +275,30 @@ func componentTypeOf(obj IDataObject) (ComponentType, bool) {
 //
 // Iterating Components and type-switching works too, but this covers the common
 // case of "give me the 3D markers from this frame" without the boilerplate.
+//
+// Only components this SDK could decode are reachable here. A component type it
+// has never heard of is held as an UnknownComponent and is never returned by
+// this method even when its type matches; use UnknownComponentData for those.
 func (d *DataPacket) Component(c ComponentType) IDataObject {
 	for _, obj := range d.Components {
 		if ctype, known := componentTypeOf(obj); known && ctype == c {
 			return obj
+		}
+	}
+	return nil
+}
+
+// UnknownComponentData returns the raw payload of the undecodable component of
+// type c, or nil if the frame carries no such component.
+//
+// UnknownComponentTypes says which types arrived that this SDK could not
+// decode; this hands over the bytes for one of them, so a caller who does know
+// a newer component's format can decode it. Component cannot serve that role:
+// it deliberately only returns components this SDK decoded itself.
+func (d *DataPacket) UnknownComponentData(c ComponentType) []byte {
+	for _, obj := range d.Components {
+		if u, ok := obj.(*UnknownComponent); ok && u.Type == c {
+			return u.Data
 		}
 	}
 	return nil
@@ -302,25 +316,25 @@ func (d *DataPacket) UnknownComponentTypes() []ComponentType {
 	return out
 }
 
-// Markers3D returns the labelled 3D component of the frame, if present.
+// Markers3D returns the labeled 3D component of the frame, if present.
 func (d *DataPacket) Markers3D() *packets.Component3D {
 	c, _ := d.Component(ComponentType3D).(*packets.Component3D)
 	return c
 }
 
-// Markers3DResidual returns the labelled 3D component with residuals.
+// Markers3DResidual returns the labeled 3D component with residuals.
 func (d *DataPacket) Markers3DResidual() *packets.Component3DResidual {
 	c, _ := d.Component(ComponentType3DResidual).(*packets.Component3DResidual)
 	return c
 }
 
-// Markers3DNoLabels returns the unlabelled 3D component.
+// Markers3DNoLabels returns the unlabeled 3D component.
 func (d *DataPacket) Markers3DNoLabels() *packets.Component3DNoLabels {
 	c, _ := d.Component(ComponentType3DNoLabels).(*packets.Component3DNoLabels)
 	return c
 }
 
-// Markers3DNoLabelsResidual returns the unlabelled 3D component with residuals.
+// Markers3DNoLabelsResidual returns the unlabeled 3D component with residuals.
 func (d *DataPacket) Markers3DNoLabelsResidual() *packets.Component3DNoLabelsResidual {
 	c, _ := d.Component(ComponentType3DNoLabelsResidual).(*packets.Component3DNoLabelsResidual)
 	return c

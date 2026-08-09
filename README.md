@@ -64,13 +64,15 @@ if err := rt.Connect(); err != nil {
 defer rt.Disconnect()
 
 if err := rt.StreamFramesAll(qualisys.ComponentType3D, qualisys.ComponentType6D); err != nil {
-    log.Fatal(err)
+    log.Println(err) // not log.Fatal: it would skip the deferred Disconnect
+    return
 }
 
 for {
     p, err := rt.Receive()
     if err != nil {
-        log.Fatal(err)
+        log.Println(err)
+        return
     }
     if p.EndOfData() {
         continue // nothing arrived within the read timeout
@@ -164,7 +166,10 @@ it themselves.
 
 ```go
 for _, unknown := range p.Data.UnknownComponentTypes() {
-    log.Printf("component type %d could not be decoded", int(unknown))
+    // UnknownComponentData hands over the bytes; Component returns nil for
+    // these, since it only surfaces components the SDK decoded itself.
+    raw := p.Data.UnknownComponentData(unknown)
+    log.Printf("component type %d could not be decoded, %d raw bytes kept", int(unknown), len(raw))
 }
 ```
 

@@ -14,10 +14,10 @@ import (
 // dataFrame builds a PacketTypeData payload (everything after the 8 byte packet
 // header) from a set of already-encoded components.
 func dataFrame(timestamp uint64, frame uint32, components ...[]byte) []byte {
-	b := make([]byte, 16)
-	binary.LittleEndian.PutUint64(b[0:8], timestamp)
-	binary.LittleEndian.PutUint32(b[8:12], frame)
-	binary.LittleEndian.PutUint32(b[12:16], uint32(len(components)))
+	b := make([]byte, 0, dataPacketHeaderSize)
+	b = binary.LittleEndian.AppendUint64(b, timestamp)
+	b = binary.LittleEndian.AppendUint32(b, frame)
+	b = binary.LittleEndian.AppendUint32(b, uint32(len(components)))
 	for _, c := range components {
 		b = append(b, c...)
 	}
@@ -27,9 +27,9 @@ func dataFrame(timestamp uint64, frame uint32, components ...[]byte) []byte {
 // component wraps a payload in the per-component size and type header. The size
 // field counts the header itself.
 func component(t ComponentType, payload []byte) []byte {
-	b := make([]byte, 8)
-	binary.LittleEndian.PutUint32(b[0:4], uint32(8+len(payload)))
-	binary.LittleEndian.PutUint32(b[4:8], uint32(t))
+	b := make([]byte, 0, componentHeaderSize+len(payload))
+	b = binary.LittleEndian.AppendUint32(b, uint32(componentHeaderSize+len(payload)))
+	b = binary.LittleEndian.AppendUint32(b, uint32(t))
 	return append(b, payload...)
 }
 
@@ -94,7 +94,7 @@ func TestDataPacketSkipsUnknownComponentTypes(t *testing.T) {
 		t.Errorf("got %d components, want 2", len(d.Components))
 	}
 	if d.Markers3D() == nil {
-		t.Error("the recognised component should still decode")
+		t.Error("the recognized component should still decode")
 	}
 	unknown := d.UnknownComponentTypes()
 	if len(unknown) != 1 || unknown[0] != futureComponent {
@@ -102,17 +102,21 @@ func TestDataPacketSkipsUnknownComponentTypes(t *testing.T) {
 	}
 	// The raw bytes are preserved so a caller that does know the format can
 	// decode it themselves.
-	var raw *UnknownComponent
-	for _, c := range d.Components {
-		if u, ok := c.(*UnknownComponent); ok {
-			raw = u
-		}
-	}
+	raw := d.UnknownComponentData(futureComponent)
 	if raw == nil {
 		t.Fatal("no UnknownComponent in the frame")
 	}
-	if string(raw.Data) != string([]byte{1, 2, 3, 4, 5, 6}) {
-		t.Errorf("preserved payload = %v, want [1 2 3 4 5 6]", raw.Data)
+	if string(raw) != string([]byte{1, 2, 3, 4, 5, 6}) {
+		t.Errorf("preserved payload = %v, want [1 2 3 4 5 6]", raw)
+	}
+	// Component deliberately surfaces only components this SDK decoded itself,
+	// so an undecodable type stays out of it however its type is spelled.
+	// UnknownComponentData is the way to those bytes.
+	if obj := d.Component(futureComponent); obj != nil {
+		t.Errorf("Component(%d) = %v, want nil for an undecodable type", futureComponent, obj)
+	}
+	if d.UnknownComponentData(ComponentType3D) != nil {
+		t.Error("UnknownComponentData returned bytes for a type that decoded fine")
 	}
 }
 
@@ -159,7 +163,7 @@ func TestDataPacketComponentsAreBoundedToTheirOwnSlice(t *testing.T) {
 
 	var d DataPacket
 	if err := d.UnmarshalBinary(payload); err == nil {
-		t.Fatal("expected the over-claiming component to fail rather than read into its neighbour")
+		t.Fatal("expected the over-claiming component to fail rather than read into its neighbor")
 	}
 }
 
