@@ -18,8 +18,9 @@ const _LedColor_name = "AmberGreenAll"
 var _LedColor_index = [...]uint8{0, 5, 10, 13}
 
 func (i LedColor) String() string {
-	if i >= LedColor(len(_LedColor_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_LedColor_index)-1 {
 		return "LedColor(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _LedColor_name[_LedColor_index[i]:_LedColor_index[i+1]]
+	return _LedColor_name[_LedColor_index[idx]:_LedColor_index[idx+1]]
 }

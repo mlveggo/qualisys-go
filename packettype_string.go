@@ -25,8 +25,9 @@ const _PacketType_name = "ErrorCommandXMLDataNoMoreDataC3DFileEventDiscoverQTMFi
 var _PacketType_index = [...]uint8{0, 5, 12, 15, 19, 29, 36, 41, 49, 56, 60}
 
 func (i PacketType) String() string {
-	if i >= PacketType(len(_PacketType_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_PacketType_index)-1 {
 		return "PacketType(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _PacketType_name[_PacketType_index[i]:_PacketType_index[i+1]]
+	return _PacketType_name[_PacketType_index[idx]:_PacketType_index[idx+1]]
 }

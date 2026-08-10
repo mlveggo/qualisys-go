@@ -1,6 +1,7 @@
 package discover
 
 import (
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -128,7 +129,11 @@ func (d *Discovery) Discover() ([]Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	conn, err := net.ListenPacket("udp", ":"+strconv.Itoa(int(d.receivePort)))
+	// ListenConfig.ListenPacket rather than net.ListenPacket: identical
+	// behavior, but it is the form that can carry a context once one is
+	// plumbed through the public API. Discover takes none today.
+	var lc net.ListenConfig
+	conn, err := lc.ListenPacket(context.Background(), "udp", ":"+strconv.Itoa(int(d.receivePort)))
 	if err != nil {
 		return nil, err
 	}

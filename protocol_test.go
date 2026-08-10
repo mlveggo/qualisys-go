@@ -1,6 +1,7 @@
 package qualisys
 
 import (
+	"context"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -10,6 +11,19 @@ import (
 	"testing"
 	"time"
 )
+
+// dialTest and listenTest wrap the context-aware net APIs the linter requires.
+// The fake server is in-process and torn down by t.Cleanup, so there is nothing
+// for a real context to cancel.
+func dialTest(addr string) (net.Conn, error) {
+	var d net.Dialer
+	return d.DialContext(context.Background(), "tcp", addr)
+}
+
+func listenTest() (net.Listener, error) {
+	var lc net.ListenConfig
+	return lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
+}
 
 // fakeQTM is a minimal stand-in for a QTM RT server. Handler is invoked for
 // each command string the client sends and returns raw packets to write back.
@@ -44,7 +58,7 @@ func eventPacket(e EventType) []byte { return encodePacket(PacketTypeEvent, []by
 
 func newFakeQTM(t *testing.T) *fakeQTM {
 	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
+	l, err := listenTest()
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
@@ -272,7 +286,7 @@ func TestReceiveHandlesHeaderSplitAcrossWrites(t *testing.T) {
 	f.start()
 
 	rt := NewProtocol("127.0.0.1", f.basePort(), WithReadTimeout(2*time.Second))
-	conn, err := net.Dial("tcp", f.listener.Addr().String())
+	conn, err := dialTest(f.listener.Addr().String())
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
@@ -304,7 +318,7 @@ func TestReceiveReportsTruncatedPacket(t *testing.T) {
 	f.start()
 
 	rt := NewProtocol("127.0.0.1", f.basePort(), WithReadTimeout(200*time.Millisecond))
-	conn, err := net.Dial("tcp", f.listener.Addr().String())
+	conn, err := dialTest(f.listener.Addr().String())
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
@@ -332,7 +346,7 @@ func TestReceiveRejectsAbsurdPacketSize(t *testing.T) {
 	f.start()
 
 	rt := NewProtocol("127.0.0.1", f.basePort(), WithMaxPacketSize(1<<20))
-	conn, err := net.Dial("tcp", f.listener.Addr().String())
+	conn, err := dialTest(f.listener.Addr().String())
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
@@ -351,7 +365,7 @@ func TestReceiveTimeoutYieldsNoMoreData(t *testing.T) {
 	f.start()
 
 	rt := NewProtocol("127.0.0.1", f.basePort(), WithReadTimeout(50*time.Millisecond))
-	conn, err := net.Dial("tcp", f.listener.Addr().String())
+	conn, err := dialTest(f.listener.Addr().String())
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}

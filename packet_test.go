@@ -301,7 +301,9 @@ func TestStreamFramesUDPValidatesPort(t *testing.T) {
 	if err := rt.StreamFramesUDP(StreamRateTypeAllFrames, 0, 0, "", ComponentOptions{}, ComponentType3D); err == nil {
 		t.Error("expected an error for UDP port 0")
 	}
-	if err := rt.StreamFramesUDP(StreamRateTypeAllFrames, 0, 70000, "", ComponentOptions{}, ComponentType3D); err == nil {
+	if err := rt.StreamFramesUDP(
+		StreamRateTypeAllFrames, 0, 70000, "", ComponentOptions{}, ComponentType3D,
+	); err == nil {
 		t.Error("expected an error for an out-of-range UDP port")
 	}
 }

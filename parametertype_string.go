@@ -26,8 +26,9 @@ const _ParameterType_name = "AllGeneralCalibration3D6DAnalogForceImageGazeVector
 var _ParameterType_index = [...]uint8{0, 3, 10, 21, 23, 25, 31, 36, 41, 51, 61, 69}
 
 func (i ParameterType) String() string {
-	if i < 0 || i >= ParameterType(len(_ParameterType_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_ParameterType_index)-1 {
 		return "ParameterType(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _ParameterType_name[_ParameterType_index[i]:_ParameterType_index[i+1]]
+	return _ParameterType_name[_ParameterType_index[idx]:_ParameterType_index[idx+1]]
 }
