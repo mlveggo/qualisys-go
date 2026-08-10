@@ -19,8 +19,9 @@ const _ImageFormatType_name = "RawGreyscaleRawBGRJPGPNG"
 var _ImageFormatType_index = [...]uint8{0, 12, 18, 21, 24}
 
 func (i ImageFormatType) String() string {
-	if i >= ImageFormatType(len(_ImageFormatType_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_ImageFormatType_index)-1 {
 		return "ImageFormatType(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _ImageFormatType_name[_ImageFormatType_index[i]:_ImageFormatType_index[i+1]]
+	return _ImageFormatType_name[_ImageFormatType_index[idx]:_ImageFormatType_index[idx+1]]
 }

@@ -34,9 +34,9 @@ const _ComponentType_name = "3D3DNoLabelsAnalogForce6D6DEuler2D2DLinearized3DRes
 var _ComponentType_index = [...]uint8{0, 2, 12, 18, 23, 25, 32, 34, 46, 56, 74, 84, 99, 111, 116, 127, 137, 145, 153, 163}
 
 func (i ComponentType) String() string {
-	i -= 1
-	if i < 0 || i >= ComponentType(len(_ComponentType_index)-1) {
-		return "ComponentType(" + strconv.FormatInt(int64(i+1), 10) + ")"
+	idx := int(i) - 1
+	if i < 1 || idx >= len(_ComponentType_index)-1 {
+		return "ComponentType(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _ComponentType_name[_ComponentType_index[i]:_ComponentType_index[i+1]]
+	return _ComponentType_name[_ComponentType_index[idx]:_ComponentType_index[idx+1]]
 }

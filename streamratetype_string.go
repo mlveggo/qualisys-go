@@ -18,8 +18,9 @@ const _StreamRateType_name = "AllFramesFrequencyFrequencyDivisor"
 var _StreamRateType_index = [...]uint8{0, 9, 18, 34}
 
 func (i StreamRateType) String() string {
-	if i < 0 || i >= StreamRateType(len(_StreamRateType_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_StreamRateType_index)-1 {
 		return "StreamRateType(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _StreamRateType_name[_StreamRateType_index[i]:_StreamRateType_index[i+1]]
+	return _StreamRateType_name[_StreamRateType_index[idx]:_StreamRateType_index[idx+1]]
 }

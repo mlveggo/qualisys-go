@@ -18,8 +18,9 @@ const _TimecodeType_name = "SMPTEIRIGCameraTime"
 var _TimecodeType_index = [...]uint8{0, 5, 9, 19}
 
 func (i TimecodeType) String() string {
-	if i >= TimecodeType(len(_TimecodeType_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_TimecodeType_index)-1 {
 		return "TimecodeType(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _TimecodeType_name[_TimecodeType_index[i]:_TimecodeType_index[i+1]]
+	return _TimecodeType_name[_TimecodeType_index[idx]:_TimecodeType_index[idx+1]]
 }

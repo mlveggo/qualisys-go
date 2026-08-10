@@ -32,9 +32,9 @@ const _EventType_name = "ConnectedConnectionClosedCaptureStartedCaptureStoppedCa
 var _EventType_index = [...]uint16{0, 9, 25, 39, 53, 76, 94, 112, 129, 146, 163, 184, 199, 211, 230, 249, 256, 260}
 
 func (i EventType) String() string {
-	i -= 1
-	if i >= EventType(len(_EventType_index)-1) {
-		return "EventType(" + strconv.FormatInt(int64(i+1), 10) + ")"
+	idx := int(i) - 1
+	if i < 1 || idx >= len(_EventType_index)-1 {
+		return "EventType(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _EventType_name[_EventType_index[i]:_EventType_index[i+1]]
+	return _EventType_name[_EventType_index[idx]:_EventType_index[idx+1]]
 }

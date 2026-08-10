@@ -18,8 +18,9 @@ const _LedMode_name = "OnOffPulsing"
 var _LedMode_index = [...]uint8{0, 2, 5, 12}
 
 func (i LedMode) String() string {
-	if i >= LedMode(len(_LedMode_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_LedMode_index)-1 {
 		return "LedMode(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _LedMode_name[_LedMode_index[i]:_LedMode_index[i+1]]
+	return _LedMode_name[_LedMode_index[idx]:_LedMode_index[idx+1]]
 }

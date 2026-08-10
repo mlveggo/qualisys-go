@@ -1,6 +1,7 @@
 package qualisys
 
 import (
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -242,7 +243,11 @@ func (rt *Protocol) Connect() error {
 	}
 
 	addr := net.JoinHostPort(rt.ip, strconv.Itoa(rt.port()))
-	conn, err := net.DialTimeout("tcp", addr, rt.connectTimeout)
+	// Dialer.DialContext rather than net.DialTimeout: same timeout, but it is
+	// the form that can carry a context once one is plumbed through the public
+	// API. Connect takes no context today, so this passes a background one.
+	dialer := net.Dialer{Timeout: rt.connectTimeout}
+	conn, err := dialer.DialContext(context.Background(), "tcp", addr)
 	if err != nil {
 		return fmt.Errorf("connect: dial %s: %w", addr, err)
 	}
