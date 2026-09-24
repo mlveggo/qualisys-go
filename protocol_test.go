@@ -504,7 +504,9 @@ func TestGetParametersSkeletonGlobalOption(t *testing.T) {
 	defer rt.Disconnect()
 
 	if _, err := rt.GetParametersWithOptions(
-		ParameterOptions{SkeletonGlobal: true}, ParameterTypeSkeleton); err != nil {
+		ParameterOptions{SkeletonGlobal: true},
+		ParameterTypeSkeleton,
+	); err != nil {
 		t.Fatalf("getparameters: %v", err)
 	}
 

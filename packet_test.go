@@ -235,7 +235,11 @@ func TestComponentStringNames(t *testing.T) {
 func TestComponentStringOptions(t *testing.T) {
 	got, err := componentString(
 		ComponentOptions{AnalogChannels: "1,3,5-8", SkeletonGlobal: true},
-		ComponentTypeAnalog, ComponentTypeAnalogSingle, ComponentTypeSkeleton, ComponentType3D)
+		ComponentTypeAnalog,
+		ComponentTypeAnalogSingle,
+		ComponentTypeSkeleton,
+		ComponentType3D,
+	)
 	if err != nil {
 		t.Fatalf("componentString: %v", err)
 	}
